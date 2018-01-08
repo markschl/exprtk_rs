@@ -1,0 +1,34 @@
+[package]
+name = "exprtk_rs"
+version = "0.0.1"
+authors = ["<markschl19@gmail.com>"]
+description = "Rust bindings to the ExprTk C++ library (http://www.partow.net/programming/exprtk)"
+readme = "README.md"
+license = "MIT"
+keywords = ["math", "formula", "parser", "expression", "evaluate"]
+repository = "https://github.com/markschl/exprtk_rs"
+documentation = "https://docs.rs/exprtk_rs"
+
+[features]
+default = ["comments", "break_continue", "sc_andor", "return_statement",
+  "rtl_io_file", "rtl_vecops", "enhanced_features", "superscalar_unroll",
+  "caseinsensitivity"
+]
+debug = ["exprtk_sys/debug"]
+comments = ["exprtk_sys/comments"]
+break_continue = ["exprtk_sys/break_continue"]
+sc_andor = ["exprtk_sys/sc_andor"]
+return_statement = ["exprtk_sys/return_statement"]
+rtl_io_file = ["exprtk_sys/rtl_io_file"]
+rtl_vecops = ["exprtk_sys/rtl_vecops"]
+enhanced_features = ["exprtk_sys/enhanced_features"]
+superscalar_unroll = ["exprtk_sys/superscalar_unroll"]
+caseinsensitivity = ["exprtk_sys/caseinsensitivity"]
+
+[dependencies]
+exprtk_sys = "0.0.1"
+enum_primitive = "0.1"
+libc = "0.2"
+
+[profile.bench]
+lto = true
