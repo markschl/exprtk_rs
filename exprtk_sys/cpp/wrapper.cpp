@@ -335,9 +335,9 @@ extern "C" {
       void *fn_pointer;
     };
 
-    #define FUNC_DEF(ADD_NAME, FREE_NAME, STRUCT, ARGS...)         \
+    #define FUNC_DEF(ADD_NAME, FREE_NAME, STRUCT, ...)             \
       func_result ADD_NAME(SymbolTable *t, char *name,             \
-                     double (*cb)(void *, ARGS), void *user_data)  \
+              double (*cb)(void *, __VA_ARGS__), void *user_data)  \
       {                                                            \
         STRUCT<double> *f = new STRUCT<double>(cb, user_data);     \
         func_result out;                                           \

@@ -8,7 +8,7 @@ fn main() {
 	c.file("cpp/wrapper.cpp")
 		.cpp(true);
 
-	 if cfg!(target_os = "windows") {
+	 if cfg!(target_os = "windows") && cfg!(target_env = "msvc") {
 		c.flag("-bigobj");
 	}
 
