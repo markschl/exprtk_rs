@@ -1,6 +1,6 @@
 [package]
 name = "exprtk_rs"
-version = "0.0.3"
+version = "0.0.4"
 authors = ["<markschl19@gmail.com>"]
 description = "Rust bindings to the ExprTk C++ library (http://www.partow.net/programming/exprtk)"
 readme = "README.md"
@@ -26,7 +26,7 @@ superscalar_unroll = ["exprtk_sys/superscalar_unroll"]
 caseinsensitivity = ["exprtk_sys/caseinsensitivity"]
 
 [dependencies]
-exprtk_sys = "0.0.2"
+exprtk_sys = "0.0.4"
 enum_primitive = "0.1"
 libc = "0.2"
 

@@ -8,9 +8,10 @@ fn main() {
 	c.file("cpp/wrapper.cpp")
 		.cpp(true);
 
-	 if cfg!(target_os = "windows") && cfg!(target_env = "msvc") {
-		c.flag("-bigobj");
-	}
+	if cfg!(target_os = "windows") {
+		c.flag_if_supported("-bigobj");
+		c.flag_if_supported("-Wa,-mbig-obj");
+   	}
 
 	if cfg!(feature = "debug") {
 		c.define("exprtk_enable_debugging", Some("1"));
