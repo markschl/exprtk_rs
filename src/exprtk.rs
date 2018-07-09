@@ -254,6 +254,29 @@ impl SymbolTable {
         })
     }
 
+    /// Allows setting the values directly in an unsafe block, which
+    /// may be useful, e.g. when benchmarking
+    ///
+    /// # Example:
+    /// ```
+    /// use exprtk_rs::*;
+    ///
+    /// let mut symbol_table = SymbolTable::new();
+    /// let id = symbol_table.add_variable("a", 2.).unwrap().unwrap();
+    /// let ptr = symbol_table.get_value_ptr(id).unwrap();
+    /// let expr = Expression::new("a - 1", symbol_table).unwrap();
+    /// assert_eq!(expr.value(), 1.);
+    ///
+    /// unsafe {
+    ///     *ptr = 4.;
+    /// }
+    /// assert_eq!(expr.value(), 3.);
+    /// ```
+    #[inline]
+    pub fn get_value_ptr(&self, var_id: usize) -> Option<*mut c_double> {
+        self.values.get(var_id).cloned()
+    }
+
     #[inline]
     pub fn mut_value(&mut self, var_id: usize) -> Option<&mut c_double> {
         self.values.get(var_id).map(|ptr| unsafe {
