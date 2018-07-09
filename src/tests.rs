@@ -39,6 +39,16 @@ fn test_vector() {
     assert_eq!(e.value(), 7.);
 }
 
+#[test]
+fn test_vector_out_of_bounds() {
+    let mut s = SymbolTable::new();
+    s.add_vector("v", &[0., 1., 2., 3.]).unwrap().unwrap();
+    if let Err(e) = Expression::new("v[1] + v[4]", s) {
+        assert!(e.message.contains("out of range for vector"));
+    } else {
+        panic!("Should fail!");
+    }
+}
 
 #[test]
 fn test_funcs() {
