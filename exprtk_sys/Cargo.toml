@@ -1,6 +1,6 @@
 [package]
 name = "exprtk_sys"
-version = "0.0.4"
+version = "0.0.5"
 authors = ["<markschl19@gmail.com>"]
 description = "Low level rust bindings to the ExprTk C++ library (http://www.partow.net/programming/exprtk)"
 build = "build.rs"

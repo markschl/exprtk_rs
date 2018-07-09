@@ -1,7 +1,8 @@
 #include "exprtk.hpp"
 
 // Disclaimer: I'm quite new with C++, not everything might be solved in
-// the best manner. Suggestions welcome.
+// the best manner. However, I didn't find any memory leaks or bugs yet.
+// Still, suggestions are welcome...
 
 
 // helpers
