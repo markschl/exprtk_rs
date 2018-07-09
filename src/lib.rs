@@ -3,22 +3,26 @@
 //!
 //! For an overview of the data structures [see the ExprTk main page](http://www.partow.net/programming/exprtk/index.html).
 //! While `exprtk-sys` maps most functions of the library to Rust, the high level bindings
-//! were considerably simplified. Each [`Expression`](struct.Expression.html) owns a
-//! [`SymbolTable`](struct.SymbolTable.html), they cannot be shared between different instances,
+//! were considerably simplified. Each [Expression](struct.Expression.html) owns a
+//! [SymbolTable](struct.SymbolTable.html), they cannot be shared between different instances,
 //! and multiple symbol tables per expression are not possible.
 //! Variables are owned by the `SymbolTable` instance. [add_variable()](exprtk/struct.SymbolTable.html#method.add_variable)
 //! returns an `usize`, which is a _variable ID_. This ID can be used to later modify the value
 //! Using [set_value()](exprtk/struct.SymbolTable.html#method.set_value). The same is true for
-//! string and vector variables. Setting a value is therefore more expensive than in C++,
-//! there is always a bounds check to see if the variable exists. The performance loss varies
-//! between ~ 10% and 150% according to benchmarks.
+//! string and vector variables.
+//!
+//! Modifying a value is therefore more expensive than in C++. In a quick comparison,
+//! the performance loss varied between ~ 3% and 70% depending on the expression (see *benches.rs*).
+//! Using *unsafe*, value pointers can still be modified directly if desired (use
+//! [get_value_ptr()](exprtk/struct.SymbolTable.html#method.get_value_ptr) to obtain them).
+//!
 //! There may be a more idiomatic way to represent the whole API in Rust, but it seems difficult to
 //! me to integrate with Rust's concepts of lifetimes and mutable/immutable borrowing.
 //! Suggestions are of course welcome.
 //!
 //! Since there is no guarantee that `double` is always `f64`, the `c_double` type is used all
+//! over the library. Other precisions are currently not supported.
 //!
-//! over the library. Other precisions are not supported.
 //! # Examples:
 //!
 //! This code corresponds to the [example 1](http://www.partow.net/programming/exprtk/index.html#simpleexample01)
