@@ -17,10 +17,10 @@ pub enum CppString {}
 #[repr(C)]
 pub struct Pair<T, U>(pub T, pub U);
 
-pub type CSizedArray<T> = Pair<size_t, *const T>;
+pub type CStrList = Pair<size_t, *const *const c_char>;
 
-impl<T> CSizedArray<T> {
-    pub unsafe fn get_slice<'a>(&'a self) -> &'a [T] {
+impl CStrList {
+    pub unsafe fn get_slice<'a>(&'a self) -> &'a [*const c_char] {
         slice::from_raw_parts(self.1, self.0 as usize)
     }
 }
@@ -46,27 +46,6 @@ impl Drop for CParseError {
 
 // functions without polymorphism
 extern "C" {
-    pub fn symbol_table_add_constants(t: *mut CSymbolTable) -> bool;
-    pub fn symbol_table_is_constant_node(t: *mut CSymbolTable, name: *const c_char) -> bool;
-    pub fn symbol_table_is_constant_string(t: *mut CSymbolTable, name: *const c_char) -> bool;
-    pub fn symbol_table_destroy(t: *mut CSymbolTable);
-
-    pub fn expression_destroy(e: *mut CExpression);
-
-    pub fn parser_new() -> *mut CParser;
-    pub fn parser_destroy(p: *mut CParser);
-    pub fn parser_compile(p: *mut CParser, s: *const c_char, e: *const CExpression) -> bool;
-    pub fn parser_compile_resolve(p: *mut CParser, s: *const c_char, e: *const CExpression)
-                                                -> Pair<bool, *mut CSizedArray<*const c_char>>;
-    pub fn parser_error(p: *mut CParser) -> *const CParseError;
-    pub fn parser_error_free(p: *const CParseError);
-
-    pub fn string_array_free(l: *mut CSizedArray<*const c_char>);
-
-    pub fn cpp_string_create(s: *const c_char, len: size_t) -> *mut CppString;
-    pub fn cpp_string_set(s: *mut CppString, replacement: *const c_char, len: size_t);
-    pub fn cpp_string_get(s: *const CppString) -> *const c_char;
-    pub fn cpp_string_free(s: *mut CppString);
 
     // these methods depend on a specific precision
 
@@ -89,6 +68,8 @@ extern "C" {
     pub fn symbol_table_clear_variables(t: *mut CSymbolTable);
     pub fn symbol_table_clear_strings(t: *mut CSymbolTable);
     pub fn symbol_table_clear_vectors(t: *mut CSymbolTable);
+    pub fn symbol_table_clear_local_constants(t: *mut CSymbolTable);
+    pub fn symbol_table_clear_functions(t: *mut CSymbolTable);
     pub fn symbol_table_variable_ref(t: *mut CSymbolTable, variable_name: *const c_char) -> *mut c_double;
     pub fn symbol_table_stringvar_ref(t: *mut CSymbolTable, variable_name: *const c_char) -> *mut CppString;
     pub fn symbol_table_vector_ptr(t: *mut CSymbolTable, variable_name: *const c_char) -> *const c_double;
@@ -96,15 +77,20 @@ extern "C" {
     pub fn symbol_table_variable_count(t: *mut CSymbolTable) -> size_t;
     pub fn symbol_table_stringvar_count(t: *mut CSymbolTable) -> size_t;
     pub fn symbol_table_vector_count(t: *mut CSymbolTable) -> size_t;
+    pub fn symbol_table_function_count(t: *mut CSymbolTable) -> size_t;
     pub fn symbol_table_add_pi(t: *mut CSymbolTable) -> bool;
     pub fn symbol_table_add_epsilon(t: *mut CSymbolTable) -> bool;
     pub fn symbol_table_add_infinity(t: *mut CSymbolTable) -> bool;
-    pub fn symbol_table_get_variable_list(t: *mut CSymbolTable) -> *mut CSizedArray<*const c_char>;
-    pub fn symbol_table_get_stringvar_list(t: *mut CSymbolTable) -> *mut CSizedArray<*const c_char>; //StringPtrList;
-    pub fn symbol_table_get_vector_list(t: *mut CSymbolTable) -> *mut CSizedArray<*const c_char>;
+    pub fn symbol_table_get_variable_list(t: *mut CSymbolTable) -> *mut CStrList;
+    pub fn symbol_table_get_stringvar_list(t: *mut CSymbolTable) -> *mut CStrList; //StringPtrList;
+    pub fn symbol_table_get_vector_list(t: *mut CSymbolTable) -> *mut CStrList;
     pub fn symbol_table_valid(t: *mut CSymbolTable) -> bool;
     pub fn symbol_table_symbol_exists(t: *mut CSymbolTable, name: *const c_char) -> bool;
     pub fn symbol_table_load_from(t: *mut CSymbolTable, other: *const CSymbolTable);
+    pub fn symbol_table_add_constants(t: *mut CSymbolTable) -> bool;
+    pub fn symbol_table_is_constant_node(t: *mut CSymbolTable, name: *const c_char) -> bool;
+    pub fn symbol_table_is_constant_string(t: *mut CSymbolTable, name: *const c_char) -> bool;
+    pub fn symbol_table_destroy(t: *mut CSymbolTable);
 
     // // blocked by #5668
     // macro_rules! func_declare {
@@ -140,4 +126,21 @@ extern "C" {
     pub fn expression_new() -> *mut CExpression;
     pub fn expression_register_symbol_table(e: *mut CExpression, t: *const CSymbolTable);
     pub fn expression_value(e: *mut CExpression) -> c_double;
+    pub fn expression_destroy(e: *mut CExpression);
+
+    pub fn parser_new() -> *mut CParser;
+    pub fn parser_destroy(p: *mut CParser);
+    pub fn parser_compile(p: *mut CParser, s: *const c_char, e: *const CExpression) -> bool;
+    pub fn parser_compile_resolve(p: *mut CParser, s: *const c_char, e: *const CExpression)
+                                                -> Pair<bool, *mut CStrList>;
+    pub fn parser_error(p: *mut CParser) -> *const CParseError;
+    pub fn parser_error_free(p: *const CParseError);
+
+    pub fn string_array_free(l: *mut CStrList);
+
+    pub fn cpp_string_create(s: *const c_char, len: size_t) -> *mut CppString;
+    pub fn cpp_string_set(s: *mut CppString, replacement: *const c_char, len: size_t);
+    pub fn cpp_string_get(s: *const CppString) -> *const c_char;
+    pub fn cpp_string_free(s: *mut CppString);
+
 }
