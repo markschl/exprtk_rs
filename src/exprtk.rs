@@ -2,6 +2,7 @@ use std::ops::Drop;
 use std::ffi::*;
 use std::mem::transmute;
 use std::fmt;
+use std::cell::Cell;
 use enum_primitive::FromPrimitive;
 
 use libc::{c_char, size_t, c_double, c_void};
@@ -58,7 +59,9 @@ impl Parser {
                 .iter()
                 .map(|s| string_from_ptr!(*s))
                 .collect();
+
             string_array_free(r.1);
+
             Ok(names)
         }
     }
@@ -130,10 +133,18 @@ impl Expression {
         Ok(e)
     }
 
-    /// Compiles a new `Expression`. Missing variables are automatically added to the `SymbolTable`
-    /// and initialized with `0.`. Their names and IDs are returned as tuple together with the
-    /// `Expression` instance.
-    pub fn with_vars(
+    /// Compiles a new `Expression` like `Expression::new`. In addition, if
+    /// unknown variables are encountered, they are automatically added an internal `SymbolTable`
+    /// and initialized with `0.`. Their names and variable IDs are returned as tuples together
+    /// with the new `Expression` instance.
+    pub fn parse_vars(string: &str) -> Result<(Expression, Vec<(String, usize)>), ParseError> {
+        Expression::parse_vars_with_symbols(string, SymbolTable::new())
+    }
+
+    /// Handles unknown variables like `Expression::parse_vars()` does, but instead of creating
+    /// a new `SymbolTable`, an existing one can be supplied, which may already have some
+    /// variables defined.
+    pub fn parse_vars_with_symbols(
         string: &str,
         symbols: SymbolTable,
     ) -> Result<(Expression, Vec<(String, usize)>), ParseError> {
@@ -164,8 +175,15 @@ impl Expression {
         unsafe { expression_value(self.expr) }
     }
 
+    /// Returns a reference to the symbol table owned by the `Expression`
     #[inline]
-    pub fn symbols(&mut self) -> &mut SymbolTable {
+    pub fn symbols(&self) -> &SymbolTable {
+        &self.symbols
+    }
+
+    /// Returns a mutable reference to the symbol table owned by the `Expression`
+    #[inline]
+    pub fn symbols_mut(&mut self) -> &mut SymbolTable {
         &mut self.symbols
     }
 }
@@ -228,8 +246,14 @@ impl SymbolTable {
 
     /// Adds a new variable. Returns the variable ID that can later be used for `set_value`
     /// or `None` if a variable with the same name was already present.
+    /// The behavior of this function differs from
+    /// [the one of the underlying library](http://www.partow.net/programming/exprtk/doxygen/classexprtk_1_1symbol__table.html)
+    /// by not providing the (optional) `is_constant` option. Use `add_constant()` instead.
     pub fn add_variable(&mut self, name: &str, value: c_double) -> Result<Option<usize>, InvalidName> {
         let i = self.values.len();
+        // TODO: examine whether it is slower to store the values themselves in the Rust struct
+        // (as Cells) and supply the pointers to ExprTk using symbol_table_add_variable
+        // would be easier
         let rv =
             unsafe { symbol_table_create_variable(self.sym, c_string!(name), value as c_double) };
         let res = self.validate_added(name, rv, i)?;
@@ -238,24 +262,9 @@ impl SymbolTable {
         Ok(res)
     }
 
-    #[inline]
-    pub fn set_value(&mut self, var_id: usize, value: c_double) -> bool {
-        if let Some(v) = self.mut_value(var_id) {
-            *v = value;
-            return true;
-        }
-        false
-    }
-
-    #[inline]
-    pub fn value(&self, var_id: usize) -> Option<&c_double> {
-        self.values.get(var_id).map(|ptr| unsafe {
-            ptr.as_ref().expect("null pointer!")
-        })
-    }
-
-    /// Allows setting the values directly in an unsafe block, which
-    /// may be useful, e.g. when benchmarking
+    /// Returns the value of a registered variable as modifiable `std::cell::Cell`.
+    /// This allows changing the values easily. If the reference to the `Cell` is
+    /// kept around, its value can easily be changed multiple times.
     ///
     /// # Example:
     /// ```
@@ -263,25 +272,33 @@ impl SymbolTable {
     ///
     /// let mut symbol_table = SymbolTable::new();
     /// let id = symbol_table.add_variable("a", 2.).unwrap().unwrap();
-    /// let ptr = symbol_table.get_value_ptr(id).unwrap();
-    /// let expr = Expression::new("a - 1", symbol_table).unwrap();
+    /// let mut expr = Expression::new("a - 1", symbol_table).unwrap();
     /// assert_eq!(expr.value(), 1.);
     ///
-    /// unsafe {
-    ///     *ptr = 4.;
-    /// }
+    /// let value = expr.symbols().value(id).unwrap();
+    /// value.set(4.);
     /// assert_eq!(expr.value(), 3.);
     /// ```
     #[inline]
-    pub fn get_value_ptr(&self, var_id: usize) -> Option<*mut c_double> {
-        self.values.get(var_id).cloned()
+    pub fn value(&self, var_id: usize) -> Option<&Cell<c_double>> {
+        let ptr = self.values.get(var_id);
+        // turn into Option<&mut c_double>
+        let var_ref = unsafe { ptr.map(|p| p.as_mut().expect("null pointer!")) };
+        var_ref.map(|r| {
+            // TODO: workaround until Cell::from_mut() becomes stable
+            // (currently behind as_cell feature flag)
+            unsafe { &*(r as *mut _ as *const Cell<_>) }
+        })
     }
 
+    /// Returns the value of a variable (whether constant or not)
     #[inline]
-    pub fn mut_value(&mut self, var_id: usize) -> Option<&mut c_double> {
-        self.values.get(var_id).map(|ptr| unsafe {
-            ptr.as_mut().expect("null pointer!")
-        })
+    pub fn value_from_name(&self, name: &str) -> Option<c_double> {
+        unsafe {
+            symbol_table_variable_ref(self.sym, c_string!(name))
+                .as_ref()
+                .map(|v| *v)
+        }
     }
 
     /// Adds a new string variable. Returns the variable ID that can later be used for `set_string`
@@ -407,6 +424,14 @@ impl SymbolTable {
         unsafe { symbol_table_clear_vectors(self.sym) }
     }
 
+    pub fn clear_local_constants(&mut self) {
+        unsafe { symbol_table_clear_local_constants(self.sym) }
+    }
+
+    pub fn clear_functions(&mut self) {
+        unsafe { symbol_table_clear_functions(self.sym) }
+    }
+
     pub fn variable_count(&self) -> usize {
         unsafe { symbol_table_variable_count(self.sym) as usize }
     }
@@ -417,6 +442,10 @@ impl SymbolTable {
 
     pub fn vector_count(&self) -> usize {
         unsafe { symbol_table_vector_count(self.sym) as usize }
+    }
+
+    pub fn function_count(&self) -> usize {
+        unsafe { symbol_table_function_count(self.sym) as usize }
     }
 
     pub fn add_constants(&self) -> bool {
@@ -535,10 +564,19 @@ impl Drop for SymbolTable {
 
 impl fmt::Debug for SymbolTable {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "SymbolTable {{ values: {}, strings: {}, vectors: {:?} }}",
-            format!("[{}]", self.get_variable_names()
+        let varnames = self.get_variable_names();
+        write!(f, "SymbolTable {{ values: {}, constants: {}, strings: {}, vectors: {:?} }}",
+            format!("[{}]", varnames
                 .iter()
-                .map(|n| format!("\"{}\": {}", n, self.value(self.get_var_id(n).unwrap()).unwrap()))
+                .filter(|n| !self.is_constant_node(n))
+                .map(|n| format!("\"{}\": {}", n, self.value_from_name(n).unwrap()))
+                .collect::<Vec<_>>()
+                .join(",")
+            ),
+            format!("[{}]", varnames
+                .iter()
+                .filter(|n| self.is_constant_node(n))
+                .map(|n| format!("\"{}\": {}", n, self.value_from_name(n).unwrap()))
                 .collect::<Vec<_>>()
                 .join(",")
             ),
@@ -568,8 +606,12 @@ impl Clone for SymbolTable {
         unsafe { symbol_table_load_from(s.sym, self.sym) }
         // vars
         for n in self.get_variable_names() {
-            let v = *self.value(self.get_var_id(&n).unwrap()).unwrap();
-            s.add_variable(&n, v).unwrap();
+            let v = self.value_from_name(&n).unwrap();
+            if self.is_constant_node(&n) {
+                s.add_constant(&n, v).unwrap();
+            } else {
+                s.add_variable(&n, v).unwrap();
+            }
         }
         // strings
         for n in self.get_stringvar_names() {

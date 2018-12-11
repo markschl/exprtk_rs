@@ -5,9 +5,9 @@ use super::*;
 fn test_var() {
     let mut s = SymbolTable::new();
     let a_id = s.add_variable("a", 0.).unwrap().unwrap();
-    let mut e = Expression::new("a + a / 2", s).unwrap();
+    let e = Expression::new("a + a / 2", s).unwrap();
     assert_eq!(e.value(), 0.);
-    e.symbols().set_value(a_id, 2.);
+    e.symbols().value(a_id).unwrap().set(2.);
     assert_eq!(e.value(), 3.);
 }
 
@@ -25,7 +25,7 @@ fn test_string() {
     let s_id = s.add_stringvar("s", b"string").unwrap().unwrap();
     let mut e = Expression::new("s[] + 1", s).unwrap();
     assert_eq!(e.value(), 7.);
-    e.symbols().set_string(s_id, b"string2");
+    e.symbols_mut().set_string(s_id, b"string2");
     assert_eq!(e.value(), 8.);
 }
 
@@ -35,7 +35,7 @@ fn test_vector() {
     let vec_id = s.add_vector("v", &[0., 1., 2., 3.]).unwrap().unwrap();
     let mut e = Expression::new("v[] + v[1] + 1", s).unwrap();
     assert_eq!(e.value(), 6.);
-    e.symbols().mut_vector(vec_id).unwrap()[1] = 2.;
+    e.symbols_mut().mut_vector(vec_id).unwrap()[1] = 2.;
     assert_eq!(e.value(), 7.);
 }
 
@@ -88,10 +88,10 @@ fn test_parse_err() {
 fn test_resolver() {
     let mut s = SymbolTable::new();
     s.add_variable("a", 1.).unwrap().unwrap();
-    let (mut expr, vars) = Expression::with_vars("a + 1 + b", s).unwrap();
+    let (expr, vars) = Expression::parse_vars_with_symbols("a + 1 + b", s).unwrap();
     assert_eq!(vars, [("b".to_string(), 1)]);
     assert_eq!(expr.value(), 2.);
-    expr.symbols().set_value(1, 1.);
+    expr.symbols().value(1).unwrap().set(1.);
     assert_eq!(expr.value(), 3.);
 }
 
@@ -101,7 +101,7 @@ fn test_names() {
     s.add_variable("a", 1.).unwrap().unwrap();
     s.add_stringvar("s", b"value").unwrap().unwrap();
     s.add_vector("v", &[1., 2.]).unwrap().unwrap();
-    let (mut expr, _) = Expression::with_vars("a + 1 + b + s[] + v[]", s).unwrap();
+    let (expr, _) = Expression::parse_vars_with_symbols("a + 1 + b + s[] + v[]", s).unwrap();
     assert_eq!(expr.symbols().get_variable_names(), vec!["a", "b"]);
     assert_eq!(expr.symbols().get_stringvar_names(), vec!["s"]);
     assert_eq!(expr.symbols().get_vector_names(), vec!["v"]);
@@ -168,9 +168,9 @@ fn test_send() {
 
     thread::spawn(move || {
         assert_eq!(e.value(), 3.);
-        e.symbols().set_value(a_id, 2.);
-        e.symbols().set_string(s_id, b"s2");
-        e.symbols().mut_vector(v_id).unwrap()[0] = 2.;
+        e.symbols().value(a_id).unwrap().set(2.);
+        e.symbols_mut().set_string(s_id, b"s2");
+        e.symbols_mut().mut_vector(v_id).unwrap()[0] = 2.;
         assert_eq!(e.value(), 6.);
     });
 }

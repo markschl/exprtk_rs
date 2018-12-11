@@ -11,11 +11,6 @@
 //! Using [set_value()](exprtk/struct.SymbolTable.html#method.set_value). The same is true for
 //! string and vector variables.
 //!
-//! Modifying a value is therefore more expensive than in C++. In a quick comparison,
-//! the performance loss varied between ~ 3% and 70% depending on the expression (see *benches.rs*).
-//! Using *unsafe*, value pointers can still be modified directly if desired (use
-//! [get_value_ptr()](exprtk/struct.SymbolTable.html#method.get_value_ptr) to obtain them).
-//!
 //! There may be a more idiomatic way to represent the whole API in Rust, but it seems difficult to
 //! me to integrate with Rust's concepts of lifetimes and mutable/immutable borrowing.
 //! Suggestions are of course welcome.
@@ -39,19 +34,22 @@
 //!
 //! let mut expression = Expression::new(expression_string, symbol_table).unwrap();
 //!
-//! let mut i = -5.;
-//! while i <= 5. {
-//!     expression.symbols().set_value(var_id, i);
+//! // this value is a reference to a std::cell::Cell that can be changed
+//! let value = expression.symbols().value(var_id).unwrap();
+//! value.set(-5.);
+//!
+//! while value.get() <= 5. {
 //!     let y = expression.value();
-//!     println!("{}\t{}", i, y);
-//!     i += 0.001;
+//!     println!("{}\t{}", value.get(), y);
+//!     value.set(value.get() + 0.001);
 //! }
 //! ```
 //!
 //! # Unknown variables
 //!
-//! Unknown variables encountered in an expression can be automatically added to the symbol table
-//! They will return a `Vec` containing the newly added variable names and their variable IDs.
+//! Unknown variables encountered in an expression can be automatically added to the symbol table.
+//! The function `Expression::parse_vars` will return a `Vec` containing the newly added variable
+//! names and their variable IDs.
 //! This works only for regular variables, not for strings or vectors.
 //!
 //! ```
@@ -59,28 +57,25 @@
 //!
 //! let expr_string = "a*x^2 + b*x + c";
 //!
-//! let mut symbol_table = SymbolTable::new();
-//! let x_id = symbol_table.add_variable("x", 0.).unwrap().unwrap();
-//!
-//! let (mut expr, unknown_vars) = Expression::with_vars(expr_string, symbol_table).unwrap();
+//! let (mut expr, unknown_vars) = Expression::parse_vars(expr_string).unwrap();
 //!
 //! assert_eq!(
 //!     unknown_vars,
-//!     vec![("a".to_string(), 1), ("b".to_string(), 2), ("c".to_string(), 3)]
+//!     vec![("a".to_string(), 0), ("x".to_string(), 1), ("b".to_string(), 2), ("c".to_string(), 3)]
 //! );
 //!
 //! // modify the values
-//! expr.symbols().set_value(1, 2.); // a
-//! expr.symbols().set_value(2, 3.); // b
-//! expr.symbols().set_value(3, 1.); // c
-//! expr.symbols().set_value(x_id, 5.); // x
+//! expr.symbols().value(0).unwrap().set(2.); // a
+//! expr.symbols().value(2).unwrap().set(3.); // b
+//! expr.symbols().value(3).unwrap().set(1.); // c
+//! expr.symbols().value(1).unwrap().set(5.); // x
 //!
 //! assert_eq!(expr.value(), 66.);
 //! ```
 //!
 //! # Strings
 //!
-//! The string variables are not Utf-8 encoded like in Rust, but byte strings. They are
+//! String variables are not UTF-8 encoded like in Rust, but byte strings. They are
 //! still called 'string' variables in the API.
 //!
 //! ```
@@ -96,7 +91,7 @@
 //! assert_eq!(expr.value(), 1.);
 //!
 //! // Modifying a string
-//! expr.symbols().set_string(s1_id, b"What a");
+//! expr.symbols_mut().set_string(s1_id, b"What a");
 //! assert_eq!(expr.value(), 0.);
 //! ```
 //!
