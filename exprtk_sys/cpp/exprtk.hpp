@@ -4042,40 +4042,6 @@ namespace exprtk
             return true;
          }
 
-         inline bool token_is_then_assign(const token_t::token_type& ttype,
-                                          std::string& token,
-                                          const token_advance_mode mode = e_advance)
-         {
-            if (current_token_.type != ttype)
-            {
-               return false;
-            }
-
-            token = current_token_.value;
-
-            advance_token(mode);
-
-            return true;
-         }
-
-         template <typename Allocator,
-                   template <typename,typename> class Container>
-         inline bool token_is_then_assign(const token_t::token_type& ttype,
-                                          Container<std::string,Allocator>& token_list,
-                                          const token_advance_mode mode = e_advance)
-         {
-            if (current_token_.type != ttype)
-            {
-               return false;
-            }
-
-            token_list.push_back(current_token_.value);
-
-            advance_token(mode);
-
-            return true;
-         }
-
          inline bool peek_token_is(const token_t::token_type& ttype)
          {
             return (lexer_.peek_next_token().type == ttype);
@@ -4592,16 +4558,16 @@ namespace exprtk
             {}
 
             control_block(const std::size_t& dsize)
-            : ref_count(1),
+            : ref_count(1    ),
               size     (dsize),
-              data     (0),
-              destruct (true)
+              data     (0    ),
+              destruct (true )
             { create_data(); }
 
             control_block(const std::size_t& dsize, data_t dptr, bool dstrct = false)
-            : ref_count(1),
-              size     (dsize),
-              data     (dptr ),
+            : ref_count(1     ),
+              size     (dsize ),
+              data     (dptr  ),
               destruct (dstrct)
             {}
 
@@ -4852,19 +4818,19 @@ namespace exprtk
                   case e_ne     : return std::not_equal_to<T>()(arg0,arg1) ? T(1) : T(0);
                   case e_gte    : return (arg0 >= arg1) ? T(1) : T(0);
                   case e_gt     : return (arg0 >  arg1) ? T(1) : T(0);
-                  case e_and    : return and_opr<T> (arg0,arg1);
+                  case e_and    : return and_opr <T>(arg0,arg1);
                   case e_nand   : return nand_opr<T>(arg0,arg1);
-                  case e_or     : return or_opr<T>  (arg0,arg1);
-                  case e_nor    : return nor_opr<T> (arg0,arg1);
-                  case e_xor    : return xor_opr<T> (arg0,arg1);
+                  case e_or     : return or_opr  <T>(arg0,arg1);
+                  case e_nor    : return nor_opr <T>(arg0,arg1);
+                  case e_xor    : return xor_opr <T>(arg0,arg1);
                   case e_xnor   : return xnor_opr<T>(arg0,arg1);
-                  case e_root   : return root<T>    (arg0,arg1);
-                  case e_roundn : return roundn<T>  (arg0,arg1);
+                  case e_root   : return root    <T>(arg0,arg1);
+                  case e_roundn : return roundn  <T>(arg0,arg1);
                   case e_equal  : return equal      (arg0,arg1);
                   case e_nequal : return nequal     (arg0,arg1);
-                  case e_hypot  : return hypot<T>   (arg0,arg1);
-                  case e_shr    : return shr<T>     (arg0,arg1);
-                  case e_shl    : return shl<T>     (arg0,arg1);
+                  case e_hypot  : return hypot   <T>(arg0,arg1);
+                  case e_shr    : return shr     <T>(arg0,arg1);
+                  case e_shl    : return shl     <T>(arg0,arg1);
 
                   default       : exprtk_debug(("numeric::details::process_impl<T> - Invalid binary operation.\n"));
                                   return std::numeric_limits<T>::quiet_NaN();
@@ -12307,14 +12273,14 @@ namespace exprtk
          static inline T process_3(const Sequence& arg_list)
          {
             return value(arg_list[0]) + value(arg_list[1]) +
-                   value(arg_list[2]);
+                   value(arg_list[2]) ;
          }
 
          template <typename Sequence>
          static inline T process_4(const Sequence& arg_list)
          {
             return value(arg_list[0]) + value(arg_list[1]) +
-                   value(arg_list[2]) + value(arg_list[3]);
+                   value(arg_list[2]) + value(arg_list[3]) ;
          }
 
          template <typename Sequence>
@@ -12322,7 +12288,7 @@ namespace exprtk
          {
             return value(arg_list[0]) + value(arg_list[1]) +
                    value(arg_list[2]) + value(arg_list[3]) +
-                   value(arg_list[4]);
+                   value(arg_list[4]) ;
          }
       };
 
@@ -12374,14 +12340,14 @@ namespace exprtk
          static inline T process_3(const Sequence& arg_list)
          {
             return value(arg_list[0]) * value(arg_list[1]) *
-                   value(arg_list[2]);
+                   value(arg_list[2]) ;
          }
 
          template <typename Sequence>
          static inline T process_4(const Sequence& arg_list)
          {
             return value(arg_list[0]) * value(arg_list[1]) *
-                   value(arg_list[2]) * value(arg_list[3]);
+                   value(arg_list[2]) * value(arg_list[3]) ;
          }
 
          template <typename Sequence>
@@ -12389,7 +12355,7 @@ namespace exprtk
          {
             return value(arg_list[0]) * value(arg_list[1]) *
                    value(arg_list[2]) * value(arg_list[3]) *
-                   value(arg_list[4]);
+                   value(arg_list[4]) ;
          }
       };
 
@@ -16766,7 +16732,7 @@ namespace exprtk
          return (*this);
       }
 
-      inline bool operator==(const symbol_table<T>& st)
+      inline bool operator==(const symbol_table<T>& st) const
       {
          return (this == &st) || (control_block_ == st.control_block_);
       }
@@ -17763,7 +17729,7 @@ namespace exprtk
          return *this;
       }
 
-      inline bool operator==(const expression<T>& e)
+      inline bool operator==(const expression<T>& e) const
       {
          return (this == &e);
       }
@@ -18550,7 +18516,7 @@ namespace exprtk
          {
             parser_.state_.scope_depth++;
             #ifdef exprtk_enable_debugging
-            std::string depth(2 * parser_.state_.scope_depth,'-');
+            const std::string depth(2 * parser_.state_.scope_depth,'-');
             exprtk_debug(("%s> Scope Depth: %02d\n",
                           depth.c_str(),
                           static_cast<int>(parser_.state_.scope_depth)));
@@ -18562,7 +18528,7 @@ namespace exprtk
             parser_.sem_.deactivate(parser_.state_.scope_depth);
             parser_.state_.scope_depth--;
             #ifdef exprtk_enable_debugging
-            std::string depth(2 * parser_.state_.scope_depth,'-');
+            const std::string depth(2 * parser_.state_.scope_depth,'-');
             exprtk_debug(("<%s Scope Depth: %02d\n",
                           depth.c_str(),
                           static_cast<int>(parser_.state_.scope_depth)));
@@ -20312,9 +20278,9 @@ namespace exprtk
       #ifdef exprtk_enable_debugging
       inline void next_token()
       {
-         std::string ct_str = current_token().value;
+         const std::string ct_str = current_token().value;
          parser_helper::next_token();
-         std::string depth(2 * state_.scope_depth,' ');
+         const std::string depth(2 * state_.scope_depth,' ');
          exprtk_debug(("%s"
                        "prev[%s] --> curr[%s]\n",
                        depth.c_str(),
@@ -20364,7 +20330,7 @@ namespace exprtk
 
                end_token = current_token();
 
-               std::string sub_expr = construct_subexpr(begin_token,end_token);
+               const std::string sub_expr = construct_subexpr(begin_token, end_token);
 
                exprtk_debug(("parse_corpus(%02d) Subexpr: %s\n",
                              static_cast<int>(arg_list.size() - 1),
@@ -20573,7 +20539,7 @@ namespace exprtk
             else if (current_state.left < precedence)
                break;
 
-            lexer::token prev_token = current_token();
+            const lexer::token prev_token = current_token();
 
             next_token();
 
@@ -20624,8 +20590,8 @@ namespace exprtk
                     details::is_return_node(right_branch)
                   )
                {
-                  free_node(node_allocator_,  expression);
-                  free_node(node_allocator_,right_branch);
+                  free_node(node_allocator_,   expression);
+                  free_node(node_allocator_, right_branch);
 
                   set_error(
                      make_error(parser_error::e_syntax,
@@ -20657,7 +20623,8 @@ namespace exprtk
                                 exprtk_error_location));
                }
 
-               free_node(node_allocator_,expression);
+               free_node(node_allocator_,   expression);
+               free_node(node_allocator_, right_branch);
 
                return error_node();
             }
@@ -23988,9 +23955,9 @@ namespace exprtk
             }
 
             if (
-                 !token_is(token_t::e_rbracket   ,prsrhlpr_t::e_hold) &&
-                 !token_is(token_t::e_rcrlbracket,prsrhlpr_t::e_hold) &&
-                 !token_is(token_t::e_rsqrbracket,prsrhlpr_t::e_hold)
+                 !token_is(token_t::e_rbracket   , prsrhlpr_t::e_hold) &&
+                 !token_is(token_t::e_rcrlbracket, prsrhlpr_t::e_hold) &&
+                 !token_is(token_t::e_rsqrbracket, prsrhlpr_t::e_hold)
                )
             {
                if (!token_is(token_t::e_eof))
@@ -24276,9 +24243,9 @@ namespace exprtk
          }
 
          if (
-              !token_is(token_t::e_rbracket   ,prsrhlpr_t::e_hold) &&
-              !token_is(token_t::e_rcrlbracket,prsrhlpr_t::e_hold) &&
-              !token_is(token_t::e_rsqrbracket,prsrhlpr_t::e_hold)
+              !token_is(token_t::e_rbracket   , prsrhlpr_t::e_hold) &&
+              !token_is(token_t::e_rcrlbracket, prsrhlpr_t::e_hold) &&
+              !token_is(token_t::e_rsqrbracket, prsrhlpr_t::e_hold)
             )
          {
             if (!token_is(token_t::e_eof,prsrhlpr_t::e_hold))
@@ -24765,7 +24732,7 @@ namespace exprtk
             return error_node();
          }
 
-         lexer::token prev_token = current_token();
+         const lexer::token prev_token = current_token();
 
          if (token_is(token_t::e_rsqrbracket))
          {
@@ -26027,11 +25994,11 @@ namespace exprtk
          inline bool is_constpow_operation(const details::operator_type& operation, expression_node_ptr(&branch)[2])
          {
             if (
-                 !is_constant_node(branch[1]) ||
-                  is_constant_node(branch[0]) ||
-                  is_variable_node(branch[0]) ||
-                  is_vector_node  (branch[0]) ||
-                  is_generally_string_node(branch[0])
+                 !details::is_constant_node(branch[1]) ||
+                  details::is_constant_node(branch[0]) ||
+                  details::is_variable_node(branch[0]) ||
+                  details::is_vector_node  (branch[0]) ||
+                  details::is_generally_string_node(branch[0])
                )
                return false;
 
@@ -27673,6 +27640,8 @@ namespace exprtk
             }
             else if (details::is_vector_elem_node(branch[0]))
             {
+               lodge_assignment(e_st_vecelem,branch[0]);
+
                switch (operation)
                {
                   #define case_stmt(op0,op1)                                                                            \
@@ -27691,6 +27660,8 @@ namespace exprtk
             }
             else if (details::is_rebasevector_elem_node(branch[0]))
             {
+               lodge_assignment(e_st_vecelem,branch[0]);
+
                switch (operation)
                {
                   #define case_stmt(op0,op1)                                                                                  \
@@ -27709,6 +27680,8 @@ namespace exprtk
             }
             else if (details::is_rebasevector_celem_node(branch[0]))
             {
+               lodge_assignment(e_st_vecelem,branch[0]);
+
                switch (operation)
                {
                   #define case_stmt(op0,op1)                                                                                   \
@@ -29322,7 +29295,7 @@ namespace exprtk
                typedef details::T0oT1oT2_base_node<Type>* sf3ext_base_ptr;
 
                sf3ext_base_ptr n = static_cast<sf3ext_base_ptr>(sf3node);
-               std::string id = "t" + expr_gen.to_str(operation) + "(" + n->type_id() + ")";
+               const std::string id = "t" + expr_gen.to_str(operation) + "(" + n->type_id() + ")";
 
                switch (n->type())
                {
@@ -29365,7 +29338,7 @@ namespace exprtk
 
                sf3ext_base_ptr n = static_cast<sf3ext_base_ptr>(sf3node);
 
-               std::string id = "(" + n->type_id() + ")" + expr_gen.to_str(operation) + "t";
+               const std::string id = "(" + n->type_id() + ")" + expr_gen.to_str(operation) + "t";
 
                switch (n->type())
                {
@@ -36765,7 +36738,7 @@ namespace exprtk
             }
          }
 
-         bool eof()
+         bool eof() const
          {
             switch (mode)
             {
@@ -36776,7 +36749,7 @@ namespace exprtk
             }
          }
 
-         file_mode get_file_mode(const std::string& access)
+         file_mode get_file_mode(const std::string& access) const
          {
             if (access.empty() || access.size() > 2)
                return e_error;
@@ -38263,9 +38236,9 @@ namespace exprtk
    namespace information
    {
       static const char* library = "Mathematical Expression Toolkit";
-      static const char* version = "2.71828182845904523536028747135266249775724709369"
-                                   "9959574966967627724076630353547594571382178525166";
-      static const char* date    = "20180101";
+      static const char* version = "2.718281828459045235360287471352662497757247093699"
+                                   "95957496696762772407663035354759457138217852516642";
+      static const char* date    = "20180913";
 
       static inline std::string data()
       {
