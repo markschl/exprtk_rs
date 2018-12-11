@@ -30,7 +30,7 @@ superscalar_unroll = []
 caseinsensitivity = []
 
 [build-dependencies]
-gcc = "0.3.54"
+cc = "1.0"
 
 [dependencies]
 libc = "0.2"

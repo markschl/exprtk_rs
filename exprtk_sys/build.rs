@@ -1,9 +1,9 @@
 
-extern crate gcc;
+extern crate cc;
 
 
 fn main() {
-	let mut c = gcc::Build::new();
+	let mut c = cc::Build::new();
 
 	c.file("cpp/wrapper.cpp")
 		.cpp(true);
