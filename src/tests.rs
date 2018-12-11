@@ -142,6 +142,7 @@ fn test_ids() {
     assert_eq!(s.get_var_id("c"), None);
     assert_eq!(s.get_string_id("s"), Some(s_id));
     assert_eq!(s.get_vec_id("v"), Some(v_id));
+    assert_eq!(s.get_vec_id("s"), None);
 }
 
 #[test]
@@ -154,6 +155,7 @@ fn test_clone() {
     let expr = Expression::new("a + s[] + v[0] + func(0)", s).unwrap();
     assert_eq!(expr.value(), 4.);
     assert_eq!(expr.clone().value(), 4.);
+    assert_eq!(format!("{:?}", expr), format!("{:?}", expr.clone()));
 }
 
 #[test]
