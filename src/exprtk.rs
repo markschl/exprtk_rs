@@ -51,6 +51,7 @@ impl Parser {
             let r = parser_compile_resolve(self.0, c_string!(string), expr.expr);
 
             if !r.0 {
+                string_array_free(r.1);
                 return Err(self.get_err());
             }
 
@@ -68,9 +69,9 @@ impl Parser {
 
     fn get_err(&self) -> ParseError {
         unsafe {
-            let e: &CParseError = transmute(parser_error(self.0));
+            let e: &mut CParseError = transmute(parser_error(self.0));
             if e.is_err {
-                ParseError {
+                let err_out = ParseError {
                     kind: ParseErrorKind::from_i32(e.mode as i32).expect(&format!(
                         "Unknown ParseErrorKind enum variant: {}",
                         e.mode
@@ -81,7 +82,9 @@ impl Parser {
                     line: string_from_ptr!(e.error_line),
                     line_no: e.line_no as usize,
                     column_no: e.column_no as usize,
-                }
+                };
+                parser_error_free(e as *mut CParseError);
+                err_out
             } else {
                 panic!("Compiler notified about error, but there is none.")
             }

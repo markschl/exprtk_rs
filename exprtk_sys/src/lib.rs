@@ -37,12 +37,6 @@ pub struct CParseError {
     pub column_no: size_t,
 }
 
-impl Drop for CParseError {
-    fn drop(&mut self) {
-        unsafe { parser_error_free(self as *mut CParseError) };
-    }
-}
-
 
 // functions without polymorphism
 extern "C" {
