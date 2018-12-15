@@ -124,6 +124,42 @@ extern "C" {
         user_data: *mut c_void) -> Pair<bool, *mut c_void>;
     pub fn symbol_table_free_func4(c_func: *mut c_void);
 
+    pub fn symbol_table_add_func5(t: *mut CSymbolTable, name: *const c_char,
+        cb: extern fn (*mut c_void, c_double, c_double, c_double, c_double, c_double) -> c_double,
+        user_data: *mut c_void) -> Pair<bool, *mut c_void>;
+    pub fn symbol_table_free_func5(c_func: *mut c_void);
+
+    pub fn symbol_table_add_func6(t: *mut CSymbolTable, name: *const c_char,
+        cb: extern fn (*mut c_void, c_double, c_double, c_double, c_double, c_double,
+        c_double) -> c_double,
+        user_data: *mut c_void) -> Pair<bool, *mut c_void>;
+    pub fn symbol_table_free_func6(c_func: *mut c_void);
+
+    pub fn symbol_table_add_func7(t: *mut CSymbolTable, name: *const c_char,
+        cb: extern fn (*mut c_void, c_double, c_double, c_double, c_double, c_double,
+        c_double, c_double) -> c_double,
+        user_data: *mut c_void) -> Pair<bool, *mut c_void>;
+    pub fn symbol_table_free_func7(c_func: *mut c_void);
+
+    pub fn symbol_table_add_func8(t: *mut CSymbolTable, name: *const c_char,
+        cb: extern fn (*mut c_void, c_double, c_double, c_double, c_double, c_double,
+        c_double, c_double, c_double) -> c_double,
+        user_data: *mut c_void) -> Pair<bool, *mut c_void>;
+    pub fn symbol_table_free_func8(c_func: *mut c_void);
+
+    pub fn symbol_table_add_func9(t: *mut CSymbolTable, name: *const c_char,
+        cb: extern fn (*mut c_void, c_double, c_double, c_double, c_double, c_double,
+        c_double, c_double, c_double, c_double) -> c_double,
+        user_data: *mut c_void) -> Pair<bool, *mut c_void>;
+    pub fn symbol_table_free_func9(c_func: *mut c_void);
+
+    pub fn symbol_table_add_func10(t: *mut CSymbolTable, name: *const c_char,
+        cb: extern fn (*mut c_void, c_double, c_double, c_double, c_double, c_double,
+        c_double, c_double, c_double, c_double, c_double) -> c_double,
+        user_data: *mut c_void) -> Pair<bool, *mut c_void>;
+    pub fn symbol_table_free_func10(c_func: *mut c_void);
+
+
     // Expression
     pub fn expression_new() -> *mut CExpression;
     pub fn expression_register_symbol_table(e: *mut CExpression, t: *const CSymbolTable);

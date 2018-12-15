@@ -97,7 +97,7 @@
 //!
 //! # Functions
 //!
-//! There is currently the possibility to add functions/closures with up to four scalar arguments.
+//! There is currently the possibility to add functions/closures with up to ten scalar arguments.
 //! Example:
 //!
 //! ```

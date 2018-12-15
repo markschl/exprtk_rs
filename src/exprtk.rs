@@ -592,6 +592,24 @@ func_impl!(add_func1, symbol_table_add_func1, a: c_double);
 func_impl!(add_func2, symbol_table_add_func2, a: c_double, b: c_double);
 func_impl!(add_func3, symbol_table_add_func3, a: c_double, b: c_double, c: c_double);
 func_impl!(add_func4, symbol_table_add_func4, a: c_double, b: c_double, c: c_double, d: c_double);
+func_impl!(add_func5, symbol_table_add_func5, a: c_double, b: c_double, c: c_double, d: c_double,
+    e: c_double
+);
+func_impl!(add_func6, symbol_table_add_func6, a: c_double, b: c_double, c: c_double, d: c_double,
+    e: c_double, f: c_double
+);
+func_impl!(add_func7, symbol_table_add_func7, a: c_double, b: c_double, c: c_double, d: c_double,
+    e: c_double, f: c_double, g: c_double
+);
+func_impl!(add_func8, symbol_table_add_func8, a: c_double, b: c_double, c: c_double, d: c_double,
+    e: c_double, f: c_double, g: c_double, h: c_double
+);
+func_impl!(add_func9, symbol_table_add_func9, a: c_double, b: c_double, c: c_double, d: c_double,
+    e: c_double, f: c_double, g: c_double, h: c_double, i: c_double
+);
+func_impl!(add_func10, symbol_table_add_func10, a: c_double, b: c_double, c: c_double, d: c_double,
+    e: c_double, f: c_double, g: c_double, h: c_double, i: c_double, j: c_double
+);
 
 
 impl Drop for SymbolTable {

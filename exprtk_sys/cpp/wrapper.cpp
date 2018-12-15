@@ -64,53 +64,6 @@ struct symbol_resolver : exprtk::parser<T>::unknown_symbol_resolver
   }
 };
 
-// Functions (not sure if there is a way to avoid repetition)
-
-template <typename T> struct var1_func : public exprtk::ifunction<T> {
-  T (*cb)(void *, T);
-  void *user_data;
-  var1_func(T (*c)(void *, T), void *d) : exprtk::ifunction<T>(1) {
-    cb = c;
-    user_data = d;
-  }
-  T operator()(const T &a) { return cb(user_data, a); }
-};
-
-template <typename T> struct var2_func : public exprtk::ifunction<T> {
-  T (*cb)(void *, T, T);
-  void *user_data;
-  var2_func(T (*c)(void *, T, T), void *d) : exprtk::ifunction<T>(2) {
-    cb = c;
-    user_data = d;
-  }
-  T operator()(const T &a, const T &b) { return cb(user_data, a, b); }
-};
-
-template <typename T> struct var3_func : public exprtk::ifunction<T> {
-  T (*cb)(void *, T, T, T);
-  void *user_data;
-  var3_func(T (*c)(void *, T, T, T), void *d) : exprtk::ifunction<T>(3) {
-    cb = c;
-    user_data = d;
-  }
-  T operator()(const T &a, const T &b, const T &c) {
-    return cb(user_data, a, b, c);
-  }
-};
-
-template <typename T> struct var4_func : public exprtk::ifunction<T> {
-  T (*cb)(void *, T, T, T, T);
-  void *user_data;
-  var4_func(T (*c)(void *, T, T, T, T), void *d) : exprtk::ifunction<T>(4) {
-    cb = c;
-    user_data = d;
-  }
-  T operator()(const T &a, const T &b, const T &c, const T &d) {
-    return cb(user_data, a, b, c, d);
-  }
-};
-
-
 // these methods don't depend on a specific precision
 
 extern "C" {
@@ -348,25 +301,70 @@ struct func_result {
   void *fn_pointer;
 };
 
-#define FUNC_DEF(ADD_NAME, FREE_NAME, STRUCT, ...)                             \
-  func_result ADD_NAME(SymbolTable *t, char *name,                             \
-                       double (*cb)(void *, __VA_ARGS__), void *user_data) {   \
-    STRUCT<double> *f = new STRUCT<double>(cb, user_data);                     \
+
+// Simulating BOOST_PP_REPEAT macro for function definitions with
+// different numbers of scalar arguments.
+// https://www.boost.org/doc/libs/1_61_0/libs/preprocessor/doc/topics/techniques.html
+// Whether this is good practice could be debated; it certainly saves from
+// writing a lot of repetitive code
+#define REPEAT(n, m, p) REPEAT ## n(m, p)
+
+#define REPEAT0(m, p)
+#define REPEAT1(m, p) m(0, p)
+#define REPEAT2(m, p) m(0, p), m(1, p)
+#define REPEAT3(m, p) REPEAT2(m, p), m(2, p)
+#define REPEAT4(m, p) REPEAT3(m, p), m(3, p)
+#define REPEAT5(m, p) REPEAT4(m, p), m(4, p)
+#define REPEAT6(m, p) REPEAT5(m, p), m(5, p)
+#define REPEAT7(m, p) REPEAT6(m, p), m(6, p)
+#define REPEAT8(m, p) REPEAT7(m, p), m(7, p)
+#define REPEAT9(m, p) REPEAT8(m, p), m(8, p)
+#define REPEAT10(m, p) REPEAT9(m, p), m(9, p)
+
+// for repeating the same arg
+#define SIMPLE(N, M) M
+// for appending an incrementing number
+#define NUMBERED(N, M) M ## N
+
+// implementing exprtk::ifunction with different No of arguments
+// and providing FFI functions for Rust
+#define FUNC_DEF(T, N)                                                         \
+ struct var##N##_func : public exprtk::ifunction<double> {                     \
+   double (*cb)(void *, REPEAT(N, SIMPLE, T));                                   \
+   void *user_data;                                                            \
+   var##N##_func(double (*c)(void *, REPEAT(N, SIMPLE, T)), void *d) : exprtk::ifunction<double>(N) {      \
+     cb = c;                                                                   \
+     user_data = d;                                                            \
+   }                                                                           \
+   double operator()(REPEAT(N, NUMBERED, const double &arg_)) {                  \
+     return cb(user_data, REPEAT(N, NUMBERED, arg_));                            \
+   }                                                                           \
+};                                                                             \
+                                                                               \
+  func_result symbol_table_add_func##N(SymbolTable *t, char *name,             \
+                       double (*cb)(void *, REPEAT(N, SIMPLE, T)),               \
+                       void *user_data)                                        \
+  {                                                                            \
+    var##N##_func *f = new var##N##_func(cb, user_data);                       \
     func_result out;                                                           \
     out.res = t->add_function(std::string(name), *f);                          \
     out.fn_pointer = (void *)f;                                                \
     return out;                                                                \
   }                                                                            \
                                                                                \
-  void FREE_NAME(var1_func<double> *f) { delete f; }
+  void symbol_table_free_func##N(var1_func *f) { delete f; }
 
-FUNC_DEF(symbol_table_add_func1, symbol_table_free_func1, var1_func, double);
-FUNC_DEF(symbol_table_add_func2, symbol_table_free_func2, var2_func, double,
-         double);
-FUNC_DEF(symbol_table_add_func3, symbol_table_free_func3, var3_func, double,
-         double, double);
-FUNC_DEF(symbol_table_add_func4, symbol_table_free_func4, var4_func, double,
-         double, double, double);
+FUNC_DEF(double, 1);
+FUNC_DEF(double, 2);
+FUNC_DEF(double, 3);
+FUNC_DEF(double, 4);
+FUNC_DEF(double, 5);
+FUNC_DEF(double, 6);
+FUNC_DEF(double, 7);
+FUNC_DEF(double, 8);
+FUNC_DEF(double, 9);
+FUNC_DEF(double, 10);
+
 
 // Expression
 
