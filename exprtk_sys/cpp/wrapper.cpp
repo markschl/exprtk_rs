@@ -1,8 +1,5 @@
 #include "exprtk.hpp"
 
-// Disclaimer: I'm quite new with C++, not everything might be solved in
-// the best manner. However, I didn't find any memory leaks or bugs yet.
-// Still, suggestions are welcome...
 
 // helpers
 
@@ -29,32 +26,40 @@ cstr_list *strings_to_cstr_list(const std::vector<std::string> &v) {
   return out;
 }
 
-struct parser_err {
-  bool is_err;
-  int mode;
-  const char *token_type;
-  const char *token_value;
-  // const char* mode;
-  const char *diagnostic;
-  const char *error_line;
-  size_t line_no;
-  size_t column_no;
-};
+extern "C" void free_rust_cstring(char * s);
 
-// adds new symbols to a vector
-
+// for resolving unknown variables
 template <typename T>
-struct symbol_resolver : public exprtk::parser<T>::unknown_symbol_resolver {
+struct symbol_resolver : exprtk::parser<T>::unknown_symbol_resolver
+{
   typedef typename exprtk::parser<T>::unknown_symbol_resolver usr_t;
-  std::vector<std::string> names;
+  char * (*callback)(const char *, void *);
+  void *user_data;
 
-  bool process(const std::string &unknown_symbol,
-               typename usr_t::usr_symbol_type &st, T &default_value,
-               std::string &error_message) {
-    st = exprtk::parser<T>::unknown_symbol_resolver::e_usr_variable_type;
-    default_value = T(0);
-    error_message.clear();
-    names.push_back(unknown_symbol);
+  symbol_resolver(char * (*cb)(const char *, void *), void *d)
+  : usr_t(exprtk::parser<T>::unknown_symbol_resolver::e_usrmode_extended)
+  {
+    callback = cb;
+    user_data = d;
+  }
+
+  virtual bool process(const std::string& unknown_symbol,
+                       exprtk::symbol_table<T>& symbol_table,
+                       std::string&        error_message)
+  {
+
+    // in bindings, only one symbol table is allowed per expression
+    // -> simplify things by ignoring this parameter
+    (void)symbol_table;
+
+    char * msg = (*callback)(unknown_symbol.c_str(), user_data);
+
+    if (msg != NULL) {
+      error_message = std::string(msg);
+      free_rust_cstring(msg);
+      return false;
+    }
+
     return true;
   }
 };
@@ -105,6 +110,7 @@ template <typename T> struct var4_func : public exprtk::ifunction<T> {
   }
 };
 
+
 // these methods don't depend on a specific precision
 
 extern "C" {
@@ -123,29 +129,31 @@ bool parser_compile(Parser *p, const char *s, Expression *e) {
   return p->compile((const std::string &)s, *e);
 }
 
-struct compile_result {
-  bool ok;
-  cstr_list *vars;
-};
+bool parser_compile_resolve(Parser *p, const char *s, Expression *e,
+    char * (*cb)(const char *, void *), void *user_data) {
 
-compile_result parser_compile_resolve(Parser *p, const char *s, Expression *e) {
-  UnknownSymbolResolver resolver;
-  compile_result result;
+  UnknownSymbolResolver resolver(cb, user_data);
 
   p->enable_unknown_symbol_resolver(&resolver);
 
-  result.ok = p->compile((const std::string &)s, *e);
-
-  exprtk::symbol_table<double> t = e->get_symbol_table(0);
-
-  result.vars = strings_to_cstr_list(resolver.names);
+  bool ok = p->compile((const std::string &)s, *e);
 
   p->disable_unknown_symbol_resolver();
 
-  return result;
+  return ok;
 }
 
-// void var_pointer_list_free(var_pointer_list *l) { delete l; }
+struct parser_err {
+  bool is_err;
+  int mode;
+  const char *token_type;
+  const char *token_value;
+  // const char* mode;
+  const char *diagnostic;
+  const char *error_line;
+  size_t line_no;
+  size_t column_no;
+};
 
 parser_err *parser_error(Parser *p) {
   // TODO: it seems p->get_error(0) creates a copy of the error (why?)

@@ -3,6 +3,7 @@ extern crate libc;
 
 use std::slice;
 use libc::*;
+use std::ffi::CString;
 
 // types
 
@@ -35,6 +36,13 @@ pub struct CParseError {
     pub error_line: *const c_char,
     pub line_no: size_t,
     pub column_no: size_t,
+}
+
+
+// for deallocating CString from C
+#[no_mangle]
+pub extern fn free_rust_cstring(s: *mut c_char) {
+    let _ = unsafe { CString::from_raw(s) };
 }
 
 
@@ -125,8 +133,8 @@ extern "C" {
     pub fn parser_new() -> *mut CParser;
     pub fn parser_destroy(p: *mut CParser);
     pub fn parser_compile(p: *mut CParser, s: *const c_char, e: *const CExpression) -> bool;
-    pub fn parser_compile_resolve(p: *mut CParser, s: *const c_char, e: *const CExpression)
-                                                -> Pair<bool, *mut CStrList>;
+    pub fn parser_compile_resolve(p: *mut CParser, s: *const c_char, e: *const CExpression,
+        cb: extern fn (*const c_char, *mut c_void) -> *const c_char, fn_pointer: *mut c_void) -> bool;
     pub fn parser_error(p: *mut CParser) -> *const CParseError;
     pub fn parser_error_free(p: *const CParseError);
 

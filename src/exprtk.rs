@@ -1,5 +1,6 @@
 use std::ops::Drop;
 use std::ffi::*;
+use std::ptr;
 use std::mem::transmute;
 use std::fmt;
 use std::cell::Cell;
@@ -11,7 +12,7 @@ use super::*;
 
 
 macro_rules! c_string {
-    ($s:expr) => { CString::new($s).unwrap().as_ptr() }
+    ($s:expr) => { CString::new($s).expect("String contains nul byte.").as_ptr() }
 }
 
 macro_rules! string_from_ptr {
@@ -41,53 +42,62 @@ impl Parser {
         Ok(())
     }
 
-    pub fn compile_resolve(
+    pub fn compile_resolve<F, S>(
         &self,
         string: &str,
-        expr: &Expression,
-    ) -> Result<Vec<String>, ParseError> {
-
+        expr: &mut Expression,
+        mut func: F,
+    ) -> Result<(), ParseError>
+    where F: FnMut(&str, &mut SymbolTable) -> Result<(), S>,
+          S: AsRef<str>
+    {
+        let expr_ptr = expr.expr;
+        let symbols = expr.symbols_mut();
+        let mut user_data = (symbols, &mut func);
         unsafe {
-            let r = parser_compile_resolve(self.0, c_string!(string), expr.expr);
-
-            if !r.0 {
-                string_array_free(r.1);
+            let r = parser_compile_resolve(self.0, c_string!(string), expr_ptr, wrapper::<F, S>, &mut user_data as *const _ as *mut c_void);
+            if !r {
                 return Err(self.get_err());
             }
+        };
 
-            let names = (*r.1)
-                .get_slice()
-                .iter()
-                .map(|s| string_from_ptr!(*s))
-                .collect();
-
-            string_array_free(r.1);
-
-            Ok(names)
+        extern fn wrapper<F, S>(c_name: *const c_char, user_data: *mut c_void) -> *const c_char
+        where F: FnMut(&str, &mut SymbolTable) -> Result<(), S>,
+        S: AsRef<str>
+        {
+            let (ref mut symbols, ref mut opt_f): &mut (&mut SymbolTable, Option<&mut F>) = unsafe { transmute(user_data) };
+            let name = unsafe { CStr::from_ptr(c_name).to_str().unwrap() };
+            opt_f.as_mut().map(|ref mut f| {
+                if let Err(e) = f(name, symbols) {
+                    return CString::new(e.as_ref()).unwrap().into_raw() as *const c_char
+                }
+                ptr::null() as *const c_char
+            }).unwrap()
         }
+
+        ::std::mem::drop(user_data);
+        Ok(())
     }
 
-    fn get_err(&self) -> ParseError {
-        unsafe {
-            let e: &mut CParseError = transmute(parser_error(self.0));
-            if e.is_err {
-                let err_out = ParseError {
-                    kind: ParseErrorKind::from_i32(e.mode as i32).expect(&format!(
-                        "Unknown ParseErrorKind enum variant: {}",
-                        e.mode
-                    )),
-                    token_type: string_from_ptr!(e.token_type),
-                    token_value: string_from_ptr!(e.token_value),
-                    message: string_from_ptr!(e.diagnostic),
-                    line: string_from_ptr!(e.error_line),
-                    line_no: e.line_no as usize,
-                    column_no: e.column_no as usize,
-                };
-                parser_error_free(e as *mut CParseError);
-                err_out
-            } else {
-                panic!("Compiler notified about error, but there is none.")
-            }
+    unsafe fn get_err(&self) -> ParseError {
+        let e: &mut CParseError = transmute(parser_error(self.0));
+        if e.is_err {
+            let err_out = ParseError {
+                kind: ParseErrorKind::from_i32(e.mode as i32).expect(&format!(
+                    "Unknown ParseErrorKind enum variant: {}",
+                    e.mode
+                )),
+                token_type: string_from_ptr!(e.token_type),
+                token_value: string_from_ptr!(e.token_value),
+                message: string_from_ptr!(e.diagnostic),
+                line: string_from_ptr!(e.error_line),
+                line_no: e.line_no as usize,
+                column_no: e.column_no as usize,
+            };
+            parser_error_free(e as *mut CParseError);
+            err_out
+        } else {
+            panic!("Compiler notified about error, but there is none.")
         }
     }
 }
@@ -129,9 +139,7 @@ impl Expression {
             string: string.to_string(),
             symbols: symbols,
         };
-        unsafe {
-            expression_register_symbol_table(e.expr, e.symbols.sym);
-        }
+        e.register_symbol_table();
         parser.compile(string, &e)?;
         Ok(e)
     }
@@ -140,36 +148,68 @@ impl Expression {
     /// unknown variables are encountered, they are automatically added an internal `SymbolTable`
     /// and initialized with `0.`. Their names and variable IDs are returned as tuples together
     /// with the new `Expression` instance.
-    pub fn parse_vars(string: &str) -> Result<(Expression, Vec<(String, usize)>), ParseError> {
-        Expression::parse_vars_with_symbols(string, SymbolTable::new())
+    pub fn parse_vars(string: &str, symbols: SymbolTable) -> Result<(Expression, Vec<(String, usize)>), ParseError> {
+        let mut vars = vec![];
+        let e = Expression::handle_unknown(string, symbols, |name, symbols| {
+            let var_id = symbols
+                .add_variable(name, 0.)
+                .map_err(|_| "invalid name.")?
+                .unwrap();
+            vars.push((name.to_string(), var_id));
+            Ok(())
+        })?;
+        Ok((e, vars))
     }
 
     /// Handles unknown variables like `Expression::parse_vars()` does, but instead of creating
     /// a new `SymbolTable`, an existing one can be supplied, which may already have some
-    /// variables defined.
-    pub fn parse_vars_with_symbols(
+    /// variables defined. The variables are handled in a closure, which can register
+    /// the names as variables, constants, strings or vectors to the supplied symbol table.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use exprtk_rs::*;
+    ///
+    /// let formula = "s_string[] + a + b";
+    /// let mut expr = Expression::handle_unknown(formula, SymbolTable::new(), |name, sym| {
+    ///     if name.starts_with("s_") {
+    ///         sym.add_stringvar(name, b"string").unwrap();
+    ///     } else {
+    ///         sym.add_variable(name, 1.).unwrap();
+    ///     }
+    ///     Ok(())
+    /// }).unwrap();
+    ///
+    /// assert_eq!(expr.value(), 8.);
+    /// ```
+    /// **Note**: this function is very flexible, but can cause problems if **not** registering
+    /// anything for a given name. In that case, the same variable name will be brought up again
+    /// and again, infinite loop, ultimately resulting in a stack overflow.
+    pub fn handle_unknown<F>(
         string: &str,
         symbols: SymbolTable,
-    ) -> Result<(Expression, Vec<(String, usize)>), ParseError> {
+        func: F,
+    ) -> Result<Expression, ParseError>
+    where F: FnMut(&str, &mut SymbolTable) -> Result<(), String>
+    {
         let parser = Parser::new();
         let mut e = Expression {
             expr: unsafe { expression_new() },
             string: string.to_string(),
             symbols: symbols,
         };
+        e.register_symbol_table();
+
+        parser.compile_resolve(string, &mut e, func)?;
+
+        Ok(e)
+    }
+
+    fn register_symbol_table(&self) {
         unsafe {
-            expression_register_symbol_table(e.expr, e.symbols.sym);
+            expression_register_symbol_table(self.expr, self.symbols.sym);
         }
-        let vars = parser.compile_resolve(string, &e)?;
-        let out = vars.into_iter()
-            .map(|v| {
-                let i = e.symbols.values.len();
-                let ptr = e.symbols.get_var_ptr(&v).expect("bug, no pointer found");
-                e.symbols.values.push(ptr);
-                (v, i)
-            })
-            .collect();
-        Ok((e, out))
     }
 
     /// Calculates the value of the expression. Returns `NaN` if the expression was not yet

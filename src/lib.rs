@@ -57,7 +57,7 @@
 //!
 //! let expr_string = "a*x^2 + b*x + c";
 //!
-//! let (mut expr, unknown_vars) = Expression::parse_vars(expr_string).unwrap();
+//! let (mut expr, unknown_vars) = Expression::parse_vars(expr_string, SymbolTable::new()).unwrap();
 //!
 //! assert_eq!(
 //!     unknown_vars,

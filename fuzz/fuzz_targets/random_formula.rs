@@ -60,7 +60,7 @@ fuzz_target!(|data: &[u8]| {
 
         assert_eq!(format!("{:?}", symbols), format!("{:?}", symbols2));
 
-        if let Ok((expr, vars)) = Expression::parse_vars_with_symbols(&formula, symbols.clone()) {
+        if let Ok((expr, vars)) = Expression::parse_vars(&formula, symbols.clone()) {
             let v = expr.value();
             for (v, _) in vars {
                 symbols.add_variable(&v, 0.).unwrap();

@@ -88,11 +88,26 @@ fn test_parse_err() {
 fn test_resolver() {
     let mut s = SymbolTable::new();
     s.add_variable("a", 1.).unwrap().unwrap();
-    let (expr, vars) = Expression::parse_vars_with_symbols("a + 1 + b", s).unwrap();
-    assert_eq!(vars, [("b".to_string(), 1)]);
-    assert_eq!(expr.value(), 2.);
-    expr.symbols().value(1).unwrap().set(1.);
-    assert_eq!(expr.value(), 3.);
+    let expr = Expression::handle_unknown("a + b + c + s[] + v[]", s, |name, s| {
+        match name {
+            "b" => { s.add_variable(name, 1.).unwrap(); },
+            "c" => { s.add_constant(name, 1.).unwrap(); },
+            "s" => { s.add_stringvar(name, b"string").unwrap(); },
+            "v" => { s.add_vector(name, &[1., 2., 3.]).unwrap(); },
+            _ => {}
+        }
+        Ok(())
+    }).unwrap();
+    assert_eq!(expr.value(), 12.);
+}
+
+#[test]
+fn test_auto_resolver() {
+    let (expr, vars) = Expression::parse_vars("a + b", SymbolTable::new()).unwrap();
+    assert_eq!(vars, vec![("a".to_string(), 0), ("b".to_string(), 1)]);
+    assert_eq!(expr.value(), 0.);
+    expr.symbols().value(0).unwrap().set(1.);
+    assert_eq!(expr.value(), 1.);
 }
 
 #[test]
@@ -101,7 +116,7 @@ fn test_names() {
     s.add_variable("a", 1.).unwrap().unwrap();
     s.add_stringvar("s", b"value").unwrap().unwrap();
     s.add_vector("v", &[1., 2.]).unwrap().unwrap();
-    let (expr, _) = Expression::parse_vars_with_symbols("a + 1 + b + s[] + v[]", s).unwrap();
+    let (expr, _) = Expression::parse_vars("a + 1 + b + s[] + v[]", s).unwrap();
     assert_eq!(expr.symbols().get_variable_names(), vec!["a", "b"]);
     assert_eq!(expr.symbols().get_stringvar_names(), vec!["s"]);
     assert_eq!(expr.symbols().get_vector_names(), vec!["v"]);
