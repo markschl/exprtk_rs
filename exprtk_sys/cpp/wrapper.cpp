@@ -330,25 +330,30 @@ struct func_result {
 // and providing FFI functions for Rust
 #define FUNC_DEF(T, N)                                                         \
  struct var##N##_func : public exprtk::ifunction<double> {                     \
-   double (*cb)(void *, REPEAT(N, SIMPLE, T));                                   \
+   double (*cb)(void *, REPEAT(N, SIMPLE, T));                                 \
    void *user_data;                                                            \
-   var##N##_func(double (*c)(void *, REPEAT(N, SIMPLE, T)), void *d) : exprtk::ifunction<double>(N) {      \
+   var##N##_func(double (*c)(void *, REPEAT(N, SIMPLE, T)), void *d) : exprtk::ifunction<double>(N) {  \
      cb = c;                                                                   \
      user_data = d;                                                            \
    }                                                                           \
-   double operator()(REPEAT(N, NUMBERED, const double &arg_)) {                  \
-     return cb(user_data, REPEAT(N, NUMBERED, arg_));                            \
+   double operator()(REPEAT(N, NUMBERED, const double &arg_)) {                \
+     return cb(user_data, REPEAT(N, NUMBERED, arg_));                          \
    }                                                                           \
 };                                                                             \
                                                                                \
   func_result symbol_table_add_func##N(SymbolTable *t, char *name,             \
-                       double (*cb)(void *, REPEAT(N, SIMPLE, T)),               \
+                       double (*cb)(void *, REPEAT(N, SIMPLE, T)),             \
                        void *user_data)                                        \
   {                                                                            \
     var##N##_func *f = new var##N##_func(cb, user_data);                       \
     func_result out;                                                           \
-    out.res = t->add_function(std::string(name), *f);                          \
-    out.fn_pointer = (void *)f;                                                \
+    std::string name_s = std::string(name);                                    \
+    out.res = t->add_function(name_s, *f);                                     \
+    if (!out.res && !t->symbol_exists(name_s)) {                               \
+      delete f;                                                                \
+    } else {                                                                   \
+      out.fn_pointer = (void *)f;                                              \
+    }                                                                          \
     return out;                                                                \
   }                                                                            \
                                                                                \

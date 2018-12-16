@@ -571,18 +571,6 @@ macro_rules! func_impl {
             pub fn $name<F>(&mut self, name: &str, func: F) -> Result<bool, InvalidName>
                 where F: Fn($($ty),*) -> c_double
             {
-                let func_box = Box::new(func);
-                let func_ptr = Box::into_raw(func_box) as *mut _ as *mut c_void;
-                let result = unsafe {
-                    $sys_func(self.sym, c_string!(name), wrapper::<F>, func_ptr)
-                };
-                self.funcs.push(FuncData {
-                    name: name.to_string(),
-                    cpp_func: result.1,
-                    rust_closure: func_ptr,
-                    clone_func: $clone_func::<F>
-                });
-
                 extern fn wrapper<F>(closure: *mut c_void, $($x: $ty),*) -> c_double
                     where F: Fn($($ty),*) -> c_double {
                     unsafe {
@@ -591,7 +579,21 @@ macro_rules! func_impl {
                     }
                 }
 
+                let func_box = Box::new(func);
+                let func_ptr = Box::into_raw(func_box) as *mut _ as *mut c_void;
+                let result = unsafe {
+                    $sys_func(self.sym, c_string!(name), wrapper::<F>, func_ptr)
+                };
+
                 let res = self.validate_added(name, result.0, ())?;
+                if res.is_none() {
+                    self.funcs.push(FuncData {
+                        name: name.to_string(),
+                        cpp_func: result.1,
+                        rust_closure: func_ptr,
+                        clone_func: $clone_func::<F>
+                    });
+                }
                 Ok(res.is_some())
             }
         }
