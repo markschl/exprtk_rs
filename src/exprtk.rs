@@ -645,7 +645,8 @@ impl Drop for SymbolTable {
 impl fmt::Debug for SymbolTable {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let varnames = self.get_variable_names();
-        write!(f, "SymbolTable {{ values: {}, constants: {}, strings: {}, vectors: {:?} }}",
+        write!(f,
+            "SymbolTable {{ values: {}, constants: {}, strings: {}, vectors: {:?}, functions: {} }}",
             format!("[{}]", varnames
                 .iter()
                 .filter(|n| !self.is_constant_node(n))
@@ -671,6 +672,12 @@ impl fmt::Debug for SymbolTable {
             format!("[{}]", self.get_vector_names()
                 .iter()
                 .map(|n| format!("\"{}\": {:?}", n, self.vector(self.get_vec_id(n).unwrap()).unwrap()))
+                .collect::<Vec<_>>()
+                .join(",")
+            ),
+            format!("[{}]", self.funcs
+                .iter()
+                .map(|f| format!("{}", f.name))
                 .collect::<Vec<_>>()
                 .join(",")
             ),
