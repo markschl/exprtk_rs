@@ -74,8 +74,6 @@ impl Parser {
                 ptr::null() as *const c_char
             }).unwrap()
         }
-
-        ::std::mem::drop(user_data);
         Ok(())
     }
 
@@ -256,6 +254,12 @@ impl Clone for Expression {
     }
 }
 
+struct FuncData {
+    name: String,
+    cpp_func: *mut c_void,
+    rust_closure: *mut c_void,
+    clone_func: fn(&str, *mut c_void, &mut SymbolTable) -> Result<bool, InvalidName>
+}
 
 /// `SymbolTable` holds different variables. There are three types of variables:
 /// Numberic variables, strings and numeric vectors of fixed size. (see
@@ -267,7 +271,7 @@ pub struct SymbolTable {
     values: Vec<*mut c_double>,
     strings: Vec<StringValue>,
     vectors: Vec<Box<[c_double]>>,
-    funcs: Vec<*mut c_void>,
+    funcs: Vec<FuncData>,
 }
 
 impl SymbolTable {
@@ -560,23 +564,29 @@ impl SymbolTable {
 }
 
 macro_rules! func_impl {
-    ($name:ident, $sys_func:ident, $($x:ident: $ty:ty),*) => {
+    ($name:ident, $sys_func:ident, $clone_func:ident, $($x:ident: $ty:ty),*) => {
         impl SymbolTable {
             /// Add a function. Returns `true` if the function was added / `false`
             /// if the name was already present.
             pub fn $name<F>(&mut self, name: &str, func: F) -> Result<bool, InvalidName>
                 where F: Fn($($ty),*) -> c_double
             {
-                let user_data = &func as *const _ as *mut c_void;
+                let func_box = Box::new(func);
+                let func_ptr = Box::into_raw(func_box) as *mut _ as *mut c_void;
                 let result = unsafe {
-                    $sys_func(self.sym, c_string!(name), wrapper::<F>, user_data)
+                    $sys_func(self.sym, c_string!(name), wrapper::<F>, func_ptr)
                 };
-                self.funcs.push(result.1);
+                self.funcs.push(FuncData {
+                    name: name.to_string(),
+                    cpp_func: result.1,
+                    rust_closure: func_ptr,
+                    clone_func: $clone_func::<F>
+                });
 
                 extern fn wrapper<F>(closure: *mut c_void, $($x: $ty),*) -> c_double
                     where F: Fn($($ty),*) -> c_double {
                     unsafe {
-                        let opt_closure: Option<&mut F> = transmute(closure);
+                        let opt_closure: Option<Box<F>> = transmute(closure);
                         opt_closure.map(|f| f($($x),*)).unwrap()
                     }
                 }
@@ -585,38 +595,47 @@ macro_rules! func_impl {
                 Ok(res.is_some())
             }
         }
+
+        fn $clone_func<F>(name: &str, closure_ptr: *mut c_void, new_symbols: &mut SymbolTable)
+        -> Result<bool, InvalidName>
+        where F: Fn($($ty),*) -> c_double
+        {
+            let opt_closure: Option<Box<F>> = unsafe { transmute(closure_ptr) };
+            new_symbols.$name(name, *opt_closure.unwrap())
+        }
     }
 }
 
-func_impl!(add_func1, symbol_table_add_func1, a: c_double);
-func_impl!(add_func2, symbol_table_add_func2, a: c_double, b: c_double);
-func_impl!(add_func3, symbol_table_add_func3, a: c_double, b: c_double, c: c_double);
-func_impl!(add_func4, symbol_table_add_func4, a: c_double, b: c_double, c: c_double, d: c_double);
-func_impl!(add_func5, symbol_table_add_func5, a: c_double, b: c_double, c: c_double, d: c_double,
-    e: c_double
+func_impl!(add_func1, symbol_table_add_func1, clone_func1, a: c_double);
+func_impl!(add_func2, symbol_table_add_func2, clone_func2, a: c_double, b: c_double);
+func_impl!(add_func3, symbol_table_add_func3, clone_func3, a: c_double, b: c_double, c: c_double);
+func_impl!(add_func4, symbol_table_add_func4, clone_func4, a: c_double, b: c_double, c: c_double,
+    d: c_double);
+func_impl!(add_func5, symbol_table_add_func5, clone_func5, a: c_double, b: c_double, c: c_double,
+    d: c_double, e: c_double
 );
-func_impl!(add_func6, symbol_table_add_func6, a: c_double, b: c_double, c: c_double, d: c_double,
-    e: c_double, f: c_double
+func_impl!(add_func6, symbol_table_add_func6, clone_func6, a: c_double, b: c_double, c: c_double,
+    d: c_double, e: c_double, f: c_double
 );
-func_impl!(add_func7, symbol_table_add_func7, a: c_double, b: c_double, c: c_double, d: c_double,
-    e: c_double, f: c_double, g: c_double
+func_impl!(add_func7, symbol_table_add_func7, clone_func7, a: c_double, b: c_double, c: c_double,
+    d: c_double, e: c_double, f: c_double, g: c_double
 );
-func_impl!(add_func8, symbol_table_add_func8, a: c_double, b: c_double, c: c_double, d: c_double,
-    e: c_double, f: c_double, g: c_double, h: c_double
+func_impl!(add_func8, symbol_table_add_func8, clone_func8, a: c_double, b: c_double, c: c_double,
+    d: c_double, e: c_double, f: c_double, g: c_double, h: c_double
 );
-func_impl!(add_func9, symbol_table_add_func9, a: c_double, b: c_double, c: c_double, d: c_double,
-    e: c_double, f: c_double, g: c_double, h: c_double, i: c_double
+func_impl!(add_func9, symbol_table_add_func9, clone_func9, a: c_double, b: c_double, c: c_double,
+    d: c_double, e: c_double, f: c_double, g: c_double, h: c_double, i: c_double
 );
-func_impl!(add_func10, symbol_table_add_func10, a: c_double, b: c_double, c: c_double, d: c_double,
-    e: c_double, f: c_double, g: c_double, h: c_double, i: c_double, j: c_double
+func_impl!(add_func10, symbol_table_add_func10, clone_func10, a: c_double, b: c_double, c: c_double,
+    d: c_double, e: c_double, f: c_double, g: c_double, h: c_double, i: c_double, j: c_double
 );
 
 
 impl Drop for SymbolTable {
     fn drop(&mut self) {
         // strings have their owne destructor, but function pointers need to be freed
-        for c_func in &self.funcs {
-            unsafe { symbol_table_free_func1(*c_func) };
+        for f in &self.funcs {
+            unsafe { symbol_table_free_func1(f.cpp_func) };
         }
         unsafe { symbol_table_destroy(self.sym) };
     }
@@ -663,8 +682,6 @@ impl fmt::Debug for SymbolTable {
 impl Clone for SymbolTable {
     fn clone(&self) -> SymbolTable {
         let mut s = Self::new();
-        // only for functions apparently
-        unsafe { symbol_table_load_from(s.sym, self.sym) }
         // vars
         for n in self.get_variable_names() {
             let v = self.value_from_name(&n).unwrap();
@@ -683,6 +700,10 @@ impl Clone for SymbolTable {
         for n in self.get_vector_names() {
             let v = self.vector(self.get_vec_id(&n).unwrap()).unwrap();
             s.add_vector(&n, v).unwrap();
+        }
+        // functions
+        for f in &self.funcs {
+            (f.clone_func)(&f.name, f.rust_closure, &mut s).unwrap();
         }
         s
     }
