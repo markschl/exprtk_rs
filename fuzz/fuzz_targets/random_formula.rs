@@ -62,6 +62,10 @@ fuzz_target!(|data: &[u8]| {
 
         if let Ok((expr, vars)) = Expression::parse_vars(&formula, symbols.clone()) {
             let v = expr.value();
+            // add these vars to original symbol table
+            for (v, _) in vars {
+                symbols.add_variable(&v, 0.).unwrap();
+            }
             let v2 = Expression::new(&formula, symbols).unwrap().value();
             assert!(v == v2 || v.is_nan() && v2.is_nan());
             let expr2 = expr.clone();
