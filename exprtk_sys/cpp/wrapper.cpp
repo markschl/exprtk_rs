@@ -349,7 +349,7 @@ struct func_result {
     func_result out;                                                           \
     std::string name_s = std::string(name);                                    \
     out.res = t->add_function(name_s, *f);                                     \
-    if (!out.res && !t->symbol_exists(name_s)) {                               \
+    if (!out.res) {                               \
       delete f;                                                                \
     } else {                                                                   \
       out.fn_pointer = (void *)f;                                              \
@@ -357,7 +357,7 @@ struct func_result {
     return out;                                                                \
   }                                                                            \
                                                                                \
-  void symbol_table_free_func##N(var1_func *f) { delete f; }
+  void symbol_table_free_func##N(var##N##_func *f) { delete f; }
 
 FUNC_DEF(double, 1);
 FUNC_DEF(double, 2);

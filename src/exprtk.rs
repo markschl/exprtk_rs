@@ -1,7 +1,7 @@
 use std::ops::Drop;
 use std::ffi::*;
 use std::ptr;
-use std::mem::transmute;
+use std::mem;
 use std::fmt;
 use std::cell::Cell;
 use enum_primitive::FromPrimitive;
@@ -65,7 +65,7 @@ impl Parser {
         where F: FnMut(&str, &mut SymbolTable) -> Result<(), S>,
         S: AsRef<str>
         {
-            let (ref mut symbols, ref mut opt_f): &mut (&mut SymbolTable, Option<&mut F>) = unsafe { transmute(user_data) };
+            let (ref mut symbols, ref mut opt_f): &mut (&mut SymbolTable, Option<&mut F>) = unsafe { mem::transmute(user_data) };
             let name = unsafe { CStr::from_ptr(c_name).to_str().unwrap() };
             opt_f.as_mut().map(|ref mut f| {
                 if let Err(e) = f(name, symbols) {
@@ -78,7 +78,7 @@ impl Parser {
     }
 
     unsafe fn get_err(&self) -> ParseError {
-        let e: &mut CParseError = transmute(parser_error(self.0));
+        let e: &mut CParseError = mem::transmute(parser_error(self.0));
         if e.is_err {
             let err_out = ParseError {
                 kind: ParseErrorKind::from_i32(e.mode as i32).expect(&format!(
@@ -258,7 +258,9 @@ struct FuncData {
     name: String,
     cpp_func: *mut c_void,
     rust_closure: *mut c_void,
-    clone_func: fn(&str, *mut c_void, &mut SymbolTable) -> Result<bool, InvalidName>
+    clone_func: fn(&str, *mut c_void, &mut SymbolTable) -> Result<bool, InvalidName>,
+    free_cpp_func: unsafe extern "C" fn(*mut c_void),
+    free_closure_func: fn(*mut c_void),
 }
 
 /// `SymbolTable` holds different variables. There are three types of variables:
@@ -564,17 +566,18 @@ impl SymbolTable {
 }
 
 macro_rules! func_impl {
-    ($name:ident, $sys_func:ident, $clone_func:ident, $($x:ident: $ty:ty),*) => {
+    ($name:ident, $sys_func:ident, $clone_func:ident, $free_closure:ident, $free_cpp_func:ident,
+        $($x:ident: $ty:ty),*) => {
         impl SymbolTable {
             /// Add a function. Returns `true` if the function was added / `false`
             /// if the name was already present.
             pub fn $name<F>(&mut self, name: &str, func: F) -> Result<bool, InvalidName>
-                where F: Fn($($ty),*) -> c_double
+                where F: Fn($($ty),*) -> c_double + Clone
             {
                 extern fn wrapper<F>(closure: *mut c_void, $($x: $ty),*) -> c_double
                     where F: Fn($($ty),*) -> c_double {
                     unsafe {
-                        let opt_closure: Option<Box<F>> = transmute(closure);
+                        let opt_closure: Option<Box<F>> = mem::transmute(closure);
                         opt_closure.map(|f| f($($x),*)).unwrap()
                     }
                 }
@@ -585,51 +588,77 @@ macro_rules! func_impl {
                     $sys_func(self.sym, c_string!(name), wrapper::<F>, func_ptr)
                 };
 
-                let res = self.validate_added(name, result.0, ())?;
-                if res.is_none() {
+                let is_new = self.validate_added(name, result.0, ())?.is_some();
+                if is_new {
                     self.funcs.push(FuncData {
                         name: name.to_string(),
                         cpp_func: result.1,
                         rust_closure: func_ptr,
-                        clone_func: $clone_func::<F>
+                        clone_func: $clone_func::<F>,
+                        free_cpp_func: $free_cpp_func,
+                        free_closure_func: $free_closure::<F>,
                     });
                 }
-                Ok(res.is_some())
+                Ok(is_new)
             }
         }
 
         fn $clone_func<F>(name: &str, closure_ptr: *mut c_void, new_symbols: &mut SymbolTable)
         -> Result<bool, InvalidName>
-        where F: Fn($($ty),*) -> c_double
+        where F: Fn($($ty),*) -> c_double + Clone
         {
-            let opt_closure: Option<Box<F>> = unsafe { transmute(closure_ptr) };
-            new_symbols.$name(name, *opt_closure.unwrap())
+            let mut opt_closure: Option<Box<F>> = unsafe { mem::transmute(closure_ptr) };
+            let res = new_symbols.$name(name, *opt_closure.as_mut().unwrap().clone());
+            mem::forget(opt_closure); // prevent destruction
+            res
+        }
+
+        fn $free_closure<F>(closure_ptr: *mut c_void)
+        where F: Fn($($ty),*) -> c_double + Clone
+        {
+            let _: Option<Box<F>> = unsafe { mem::transmute(closure_ptr) };
         }
     }
 }
 
-func_impl!(add_func1, symbol_table_add_func1, clone_func1, a: c_double);
-func_impl!(add_func2, symbol_table_add_func2, clone_func2, a: c_double, b: c_double);
-func_impl!(add_func3, symbol_table_add_func3, clone_func3, a: c_double, b: c_double, c: c_double);
-func_impl!(add_func4, symbol_table_add_func4, clone_func4, a: c_double, b: c_double, c: c_double,
-    d: c_double);
-func_impl!(add_func5, symbol_table_add_func5, clone_func5, a: c_double, b: c_double, c: c_double,
-    d: c_double, e: c_double
+func_impl!(add_func1, symbol_table_add_func1, clone_func1,
+    free_func_closure1, symbol_table_free_func1,
+    a: c_double);
+func_impl!(add_func2, symbol_table_add_func2, clone_func2,
+    free_func_closure2, symbol_table_free_func2,
+    a: c_double, b: c_double);
+func_impl!(add_func3, symbol_table_add_func3, clone_func3,
+    free_func_closure3, symbol_table_free_func3,
+    a: c_double, b: c_double, c: c_double);
+func_impl!(add_func4, symbol_table_add_func4, clone_func4,
+    free_func_closure4, symbol_table_free_func4,
+    a: c_double, b: c_double, c: c_double, d: c_double);
+func_impl!(add_func5, symbol_table_add_func5, clone_func5,
+    free_func_closure5, symbol_table_free_func5,
+    a: c_double, b: c_double, c: c_double, d: c_double, e: c_double
 );
-func_impl!(add_func6, symbol_table_add_func6, clone_func6, a: c_double, b: c_double, c: c_double,
-    d: c_double, e: c_double, f: c_double
+func_impl!(add_func6, symbol_table_add_func6, clone_func6,
+    free_func_closure6, symbol_table_free_func6,
+    a: c_double, b: c_double, c: c_double, d: c_double, e: c_double, f: c_double
 );
-func_impl!(add_func7, symbol_table_add_func7, clone_func7, a: c_double, b: c_double, c: c_double,
-    d: c_double, e: c_double, f: c_double, g: c_double
+func_impl!(add_func7, symbol_table_add_func7, clone_func7,
+    free_func_closure7, symbol_table_free_func7,
+    a: c_double, b: c_double, c: c_double, d: c_double, e: c_double, f: c_double, g: c_double
 );
-func_impl!(add_func8, symbol_table_add_func8, clone_func8, a: c_double, b: c_double, c: c_double,
-    d: c_double, e: c_double, f: c_double, g: c_double, h: c_double
+func_impl!(add_func8, symbol_table_add_func8, clone_func8,
+    free_func_closure8, symbol_table_free_func8,
+    a: c_double, b: c_double, c: c_double, d: c_double, e: c_double, f: c_double, g: c_double,
+    h: c_double
 );
-func_impl!(add_func9, symbol_table_add_func9, clone_func9, a: c_double, b: c_double, c: c_double,
-    d: c_double, e: c_double, f: c_double, g: c_double, h: c_double, i: c_double
+func_impl!(add_func9, symbol_table_add_func9, clone_func9,
+    free_func_closure9, symbol_table_free_func9,
+    a: c_double, b: c_double, c: c_double, d: c_double, e: c_double, f: c_double, g: c_double,
+    h: c_double, i: c_double
 );
-func_impl!(add_func10, symbol_table_add_func10, clone_func10, a: c_double, b: c_double, c: c_double,
-    d: c_double, e: c_double, f: c_double, g: c_double, h: c_double, i: c_double, j: c_double
+func_impl!(add_func10, symbol_table_add_func10, clone_func10,
+    free_func_closure10, symbol_table_free_func10,
+    a: c_double, b: c_double, c: c_double, d: c_double, e: c_double, f: c_double, g: c_double,
+    h: c_double, i: c_double, j: c_double
 );
 
 
@@ -637,7 +666,10 @@ impl Drop for SymbolTable {
     fn drop(&mut self) {
         // strings have their owne destructor, but function pointers need to be freed
         for f in &self.funcs {
-            unsafe { symbol_table_free_func1(f.cpp_func) };
+            unsafe {
+                (f.free_cpp_func)(f.cpp_func);
+                (f.free_closure_func)(f.rust_closure);
+            }
         }
         unsafe { symbol_table_destroy(self.sym) };
     }
