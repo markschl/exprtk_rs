@@ -375,11 +375,13 @@ impl SymbolTable {
         false
     }
 
+    /// Returns an immutable reference to a string variable given its ID.
     #[inline]
     pub fn string(&self, var_id: usize) -> Option<&StringValue> {
         self.strings.get(var_id)
     }
 
+    /// Returns a mutable reference to a string variable given its ID.
     #[inline]
     pub fn mut_string(&mut self, var_id: usize) -> Option<&mut StringValue> {
         self.strings.get_mut(var_id)
@@ -401,14 +403,26 @@ impl SymbolTable {
         res
     }
 
+    /// Returns an immutable reference to a vector given its variable ID.
     #[inline]
-    pub fn vector(&self, var_id: usize) -> Option<&[c_double]> {
+    pub fn value_vector(&self, var_id: usize) -> Option<&[c_double]> {
         self.vectors.get(var_id).map(|v| &**v)
     }
 
+    /// Returns a reference to a vector given its variable ID. The values are of the type
+    /// `std::cell::Cell`, and can thus be modified without mutable access to `SymbolTable`
     #[inline]
-    pub fn mut_vector(&mut self, var_id: usize) -> Option<&mut [c_double]> {
-        self.vectors.get_mut(var_id).map(|v| &mut **v)
+    pub fn vector(&self, var_id: usize) -> Option<&[Cell<c_double>]> {
+        self.vectors.get(var_id).map(|v| unsafe {
+            // Code equivalent to v.from_mut().as_slice_of_cells(), could be used once stable, but
+            // would require mutable access to self.vectors, which we don't have here.
+            // Alternatively, self.vectors could hold slices of Cells itself. However,
+            // SymbolTable::value_vector would then require unsafe code to convert it back.
+            // Therefore, using unsafe code here
+            let cell_slice = &*(&**v as *const [c_double] as *const Cell<[c_double]>);
+            // code from Cell::as_slice_of_cells(), replace when stable
+            &*(cell_slice as *const Cell<[c_double]> as *const [Cell<c_double>])
+        })
     }
 
     fn validate_added<O>(&self, name: &str, result: bool, out: O) -> Result<Option<O>, InvalidName> {
@@ -744,7 +758,7 @@ impl Clone for SymbolTable {
         }
         // vectors
         for n in self.get_vector_names() {
-            let v = self.vector(self.get_vec_id(&n).unwrap()).unwrap();
+            let v = self.value_vector(self.get_vec_id(&n).unwrap()).unwrap();
             s.add_vector(&n, v).unwrap();
         }
         // functions

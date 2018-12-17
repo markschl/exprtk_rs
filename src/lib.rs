@@ -6,10 +6,14 @@
 //! were considerably simplified. Each [Expression](struct.Expression.html) owns a
 //! [SymbolTable](struct.SymbolTable.html), they cannot be shared between different instances,
 //! and multiple symbol tables per expression are not possible.
-//! Variables are owned by the `SymbolTable` instance. [add_variable()](exprtk/struct.SymbolTable.html#method.add_variable)
-//! returns an `usize`, which is a _variable ID_. This ID can be used to later modify the value
-//! Using [set_value()](exprtk/struct.SymbolTable.html#method.set_value). The same is true for
-//! string and vector variables.
+//! Variables are owned by the `SymbolTable` instance. The functions for adding variables
+//! ([add_variable()](exprtk/struct.SymbolTable.html#method.add_variable)), strings
+//! ([add_stringvar()](exprtk/struct.SymbolTable.html#method.add_stringvar)), vectors
+//! ([add_vector()](exprtk/struct.SymbolTable.html#method.add_vector)) all return an `usize`,
+//! which is a _variable ID_. This ID can be used to later get symbol values and modify them.
+//! Scalars are modified via `std::cell::Cell` types without requiring mutable access to the
+//! `SymbolTable`. Strings are changed using [set_string()](exprtk/struct.SymbolTable.html#method.set_string),
+//! which requires mutable access.
 //!
 //! There may be a more idiomatic way to represent the whole API in Rust, but it seems difficult to
 //! me to integrate with Rust's concepts of lifetimes and mutable/immutable borrowing.

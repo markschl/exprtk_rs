@@ -35,7 +35,7 @@ fn test_vector() {
     let vec_id = s.add_vector("v", &[0., 1., 2., 3.]).unwrap().unwrap();
     let mut e = Expression::new("v[] + v[1] + 1", s).unwrap();
     assert_relative_eq!(e.value(), 6.);
-    e.symbols_mut().mut_vector(vec_id).unwrap()[1] = 2.;
+    e.symbols_mut().vector(vec_id).unwrap()[1].set(2.);
     assert_relative_eq!(e.value(), 7.);
 }
 
@@ -187,7 +187,7 @@ fn test_send() {
         assert_relative_eq!(e.value(), 3.);
         e.symbols().value(a_id).unwrap().set(2.);
         e.symbols_mut().set_string(s_id, b"s2");
-        e.symbols_mut().mut_vector(v_id).unwrap()[0] = 2.;
+        e.symbols_mut().vector(v_id).unwrap()[0].set(2.);
         assert_relative_eq!(e.value(), 6.);
     });
 }

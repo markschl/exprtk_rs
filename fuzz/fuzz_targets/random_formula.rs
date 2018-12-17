@@ -48,7 +48,7 @@ fuzz_target!(|data: &[u8]| {
 
         if let Ok(Some(vec_id)) = symbols.add_vector(&vec_sym, &[1., 2.]) {
             assert_eq!(symbols.get_vec_id(&vec_sym), Some(vec_id));
-            symbols.mut_vector(vec_id).unwrap()[0] = 0.;
+            symbols.vector(vec_id).unwrap()[0].set(0.);
             assert_eq!(&symbols.get_vector_names(), &[vec_sym.as_str()]);
             assert!(symbols.symbol_exists(&vec_sym));
         }
