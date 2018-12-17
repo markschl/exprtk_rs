@@ -723,14 +723,14 @@ impl fmt::Debug for SymbolTable {
                 .filter(|n| !self.is_constant_node(n))
                 .map(|n| format!("\"{}\": {}", n, self.value_from_name(n).unwrap()))
                 .collect::<Vec<_>>()
-                .join(",")
+                .join(", ")
             ),
             format!("[{}]", varnames
                 .iter()
                 .filter(|n| self.is_constant_node(n))
                 .map(|n| format!("\"{}\": {}", n, self.value_from_name(n).unwrap()))
                 .collect::<Vec<_>>()
-                .join(",")
+                .join(", ")
             ),
             format!("[{}]", self.get_stringvar_names()
                 .iter()
@@ -738,19 +738,19 @@ impl fmt::Debug for SymbolTable {
                     self.string(self.get_string_id(n).unwrap()).unwrap().get())
                 )
                 .collect::<Vec<_>>()
-                .join(",")
+                .join(", ")
             ),
             format!("[{}]", self.get_vector_names()
                 .iter()
-                .map(|n| format!("\"{}\": {:?}", n, self.vector(self.get_vec_id(n).unwrap()).unwrap()))
+                .map(|n| format!("\"{}\": {:?}", n, self.value_vector(self.get_vec_id(n).unwrap()).unwrap()))
                 .collect::<Vec<_>>()
-                .join(",")
+                .join(", ")
             ),
             format!("[{}]", self.funcs
                 .iter()
                 .map(|f| f.name.to_string())
                 .collect::<Vec<_>>()
-                .join(",")
+                .join(", ")
             ),
         )
     }

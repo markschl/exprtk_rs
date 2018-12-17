@@ -1,6 +1,7 @@
 #![no_main]
 #[macro_use] extern crate libfuzzer_sys;
 extern crate exprtk_rs;
+#[macro_use] extern crate approx;
 
 use exprtk_rs::*;
 
@@ -61,17 +62,26 @@ fuzz_target!(|data: &[u8]| {
         assert_eq!(format!("{:?}", symbols), format!("{:?}", symbols2));
 
         if let Ok((expr, vars)) = Expression::parse_vars(&formula, symbols.clone()) {
-            let v = expr.value();
             // add these vars to original symbol table
             for (v, _) in vars {
                 symbols.add_variable(&v, 0.).unwrap();
             }
-            let v2 = Expression::new(&formula, symbols).unwrap().value();
-            assert!(v == v2 || v.is_nan() && v2.is_nan());
-            let expr2 = expr.clone();
-            let v3 = expr2.value();
-            assert!(v == v3 || v.is_nan() && v3.is_nan());
+            let expr2 = Expression::new(&formula, symbols).unwrap();
+            let expr3 = expr.clone();
+            let expr4 = expr2.clone();
             assert_eq!(format!("{:?}", expr), format!("{:?}", expr2));
+            assert_eq!(format!("{:?}", expr), format!("{:?}", expr3));
+            assert_eq!(format!("{:?}", expr), format!("{:?}", expr4));
+
+            // Compare values. Has to be done AFTER cloning of expr, since a call to
+            // Expression::value() can modify its internal SymbolTable).
+            let v = expr.value();
+            let v2 = expr2.value();
+            let v3 = expr3.value();
+            let v4 = expr4.value();
+            assert!(relative_eq!(v, v2) || v.is_nan() && v2.is_nan());
+            assert!(relative_eq!(v, v3) || v.is_nan() && v3.is_nan());
+            assert!(relative_eq!(v, v4) || v.is_nan() && v4.is_nan());
         }
 
         symbols2.clear_variables();
