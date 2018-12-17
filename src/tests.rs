@@ -22,10 +22,10 @@ fn test_constant() {
 #[test]
 fn test_string() {
     let mut s = SymbolTable::new();
-    let s_id = s.add_stringvar("s", b"string").unwrap().unwrap();
+    let s_id = s.add_stringvar("s", "string").unwrap().unwrap();
     let mut e = Expression::new("s[] + 1", s).unwrap();
     assert_relative_eq!(e.value(), 7.);
-    e.symbols_mut().set_string(s_id, b"string2");
+    e.symbols_mut().set_string(s_id, "string2");
     assert_relative_eq!(e.value(), 8.);
 }
 
@@ -92,7 +92,7 @@ fn test_resolver() {
         match name {
             "b" => { s.add_variable(name, 1.).unwrap(); },
             "c" => { s.add_constant(name, 1.).unwrap(); },
-            "s" => { s.add_stringvar(name, b"string").unwrap(); },
+            "s" => { s.add_stringvar(name, "string").unwrap(); },
             "v" => { s.add_vector(name, &[1., 2., 3.]).unwrap(); },
             _ => {}
         }
@@ -114,7 +114,7 @@ fn test_auto_resolver() {
 fn test_names() {
     let mut s = SymbolTable::new();
     s.add_variable("a", 1.).unwrap().unwrap();
-    s.add_stringvar("s", b"value").unwrap().unwrap();
+    s.add_stringvar("s", "value").unwrap().unwrap();
     s.add_vector("v", &[1., 2.]).unwrap().unwrap();
     let (expr, _) = Expression::parse_vars("a + 1 + b + s[] + v[]", s).unwrap();
     assert_eq!(expr.symbols().get_variable_names(), vec!["a", "b"]);
@@ -126,7 +126,7 @@ fn test_names() {
 fn test_clear() {
     let mut s = SymbolTable::new();
     s.add_variable("a", 1.).unwrap().unwrap();
-    s.add_stringvar("s", b"value").unwrap().unwrap();
+    s.add_stringvar("s", "value").unwrap().unwrap();
     s.add_vector("v", &[1., 2.]).unwrap().unwrap();
     s.clear_variables();
     s.clear_strings();
@@ -149,11 +149,9 @@ fn test_const() {
 fn test_ids() {
     let mut s = SymbolTable::new();
     let a_id = s.add_variable("a", 1.).unwrap().unwrap();
-    let b_id = s.add_variable("b", 1.).unwrap().unwrap();
-    let s_id = s.add_stringvar("s", b"value").unwrap().unwrap();
+    let s_id = s.add_stringvar("s", "value").unwrap().unwrap();
     let v_id = s.add_vector("v", &[1., 2.]).unwrap().unwrap();
     assert_eq!(s.get_var_id("a"), Some(a_id));
-    assert_eq!(s.get_var_id("b"), Some(b_id));
     assert_eq!(s.get_var_id("c"), None);
     assert_eq!(s.get_string_id("s"), Some(s_id));
     assert_eq!(s.get_vec_id("v"), Some(v_id));
@@ -164,7 +162,7 @@ fn test_ids() {
 fn test_clone() {
     let mut s = SymbolTable::new();
     s.add_variable("a", 1.).unwrap().unwrap();
-    s.add_stringvar("s", b"s").unwrap().unwrap();
+    s.add_stringvar("s", "s").unwrap().unwrap();
     s.add_vector("v", &[1., 2.]).unwrap().unwrap();
     s.add_func1("func", |x| x + 1.).unwrap();
     let expr = Expression::new("a + s[] + v[0] + func(0)", s).unwrap();
@@ -178,7 +176,7 @@ fn test_send() {
     use std::thread;
     let mut s = SymbolTable::new();
     let a_id = s.add_variable("a", 1.).unwrap().unwrap();
-    let s_id = s.add_stringvar("s", b"s").unwrap().unwrap();
+    let s_id = s.add_stringvar("s", "s").unwrap().unwrap();
     let v_id = s.add_vector("v", &[1.]).unwrap().unwrap();
     let mut e = Expression::new("a + s[] + v[0]", s).unwrap();
     assert_relative_eq!(e.value(), 3.);
@@ -186,7 +184,7 @@ fn test_send() {
     thread::spawn(move || {
         assert_relative_eq!(e.value(), 3.);
         e.symbols().value(a_id).unwrap().set(2.);
-        e.symbols_mut().set_string(s_id, b"s2");
+        e.symbols_mut().set_string(s_id, "s2");
         e.symbols_mut().vector(v_id).unwrap()[0].set(2.);
         assert_relative_eq!(e.value(), 6.);
     });

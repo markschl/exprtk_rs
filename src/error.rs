@@ -20,6 +20,43 @@ pub struct ParseError {
     pub column_no: usize,
 }
 
+impl ParseError {
+    pub(super) fn simple_syntax(s: &str, msg: &str) -> Self {
+        let s = s.to_string();
+        ParseError {
+            kind: ParseErrorKind::Syntax,
+            token_type: "".to_string(),
+            token_value: s,
+            message: msg.to_string(),
+            line: "".to_string(),
+            line_no: 1,
+            column_no: 1,
+        }
+    }
+
+    pub(super) unsafe fn from_c_err(c_parser: *mut CParser) -> Option<Self> {
+        let e: &CParseError = &*parser_error(c_parser);
+        if e.is_err {
+            let err_out = ParseError {
+                kind: ParseErrorKind::from_i32(e.mode as i32).unwrap_or_else(|| panic!(
+                    "Unknown ParseErrorKind enum variant: {}",
+                    e.mode
+                )),
+                token_type: string_from_ptr!(e.token_type),
+                token_value: string_from_ptr!(e.token_value),
+                message: string_from_ptr!(e.diagnostic),
+                line: string_from_ptr!(e.error_line),
+                line_no: e.line_no as usize,
+                column_no: e.column_no as usize,
+            };
+            parser_error_free(e as *const CParseError);
+            Some(err_out)
+        } else {
+            None
+        }
+    }
+}
+
 enum_from_primitive! {
     #[derive(Debug, PartialEq, Clone)]
     pub enum ParseErrorKind {
@@ -71,27 +108,5 @@ impl fmt::Display for InvalidName {
 impl Error for InvalidName {
     fn description(&self) -> &str {
         "invalid variable name"
-    }
-}
-
-pub(super) unsafe fn get_err(c_parser: *mut CParser) -> ParseError {
-    let e: &CParseError = &*parser_error(c_parser);
-    if e.is_err {
-        let err_out = ParseError {
-            kind: ParseErrorKind::from_i32(e.mode as i32).unwrap_or_else(|| panic!(
-                "Unknown ParseErrorKind enum variant: {}",
-                e.mode
-            )),
-            token_type: string_from_ptr!(e.token_type),
-            token_value: string_from_ptr!(e.token_value),
-            message: string_from_ptr!(e.diagnostic),
-            line: string_from_ptr!(e.error_line),
-            line_no: e.line_no as usize,
-            column_no: e.column_no as usize,
-        };
-        parser_error_free(e as *const CParseError);
-        err_out
-    } else {
-        panic!("Compiler notified about error, but there is none.")
     }
 }

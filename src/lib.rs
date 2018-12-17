@@ -22,6 +22,9 @@
 //! Since there is no guarantee that `double` is always `f64`, the `c_double` type is used all
 //! over the library. Other precisions are currently not supported.
 //!
+//! ExprTk does not handle non-ASCII encodings, therefore variable names and formulae are
+//! checked for non-ASCII characters or null bytes and will fail with an error.
+//!
 //! # Examples:
 //!
 //! This code corresponds to the [example 1](http://www.partow.net/programming/exprtk/index.html#simpleexample01)
@@ -77,17 +80,14 @@
 //! assert_eq!(expr.value(), 66.);
 //! ```
 //!
-//! # Strings
-//!
-//! String variables are not UTF-8 encoded like in Rust, but byte strings. They are
-//! still called 'string' variables in the API.
+//! # Example using strings
 //!
 //! ```
 //! use exprtk_rs::*;
 //!
 //! let mut symbol_table = SymbolTable::new();
-//! let s1_id = symbol_table.add_stringvar("s1", b"Hello").unwrap().unwrap();
-//! let s2_id = symbol_table.add_stringvar("s2",  b"world!").unwrap().unwrap();
+//! let s1_id = symbol_table.add_stringvar("s1", "Hello").unwrap().unwrap();
+//! let s2_id = symbol_table.add_stringvar("s2",  "world!").unwrap().unwrap();
 //!
 //! // concatenation
 //! let mut expr = Expression::new("s1 + ' ' + s2 == 'Hello world!'", symbol_table).unwrap();
@@ -95,7 +95,7 @@
 //! assert_eq!(expr.value(), 1.);
 //!
 //! // Modifying a string
-//! expr.symbols_mut().set_string(s1_id, b"What a");
+//! expr.symbols_mut().set_string(s1_id, "");
 //! assert_eq!(expr.value(), 0.);
 //! ```
 //!
@@ -123,9 +123,6 @@ pub use libc::c_double;
 pub use exprtk::*;
 pub use error::*;
 
-macro_rules! c_string {
-    ($s:expr) => { CString::new($s).expect("String contains nul byte.").as_ptr() }
-}
 
 macro_rules! string_from_ptr {
     ($s:expr) => { CStr::from_ptr($s).to_string_lossy().into_owned() }

@@ -6,7 +6,7 @@ use exprtk_rs::*;
 
 fuzz_target!(|data: &[u8]| {
     if let Ok(formula) = ::std::str::from_utf8(data) {
-        if data.len() <= 5 || !formula.is_ascii() || formula.as_bytes().into_iter().any(|&b| b == 0) {
+        if formula.chars().count() <= 5 {
             return;
         }
 
@@ -37,9 +37,9 @@ fuzz_target!(|data: &[u8]| {
         symbols.add_epsilon();
         symbols.add_infinity();
 
-        if let Ok(Some(str_id)) = symbols.add_stringvar(&str_sym, b"value") {
+        if let Ok(Some(str_id)) = symbols.add_stringvar(&str_sym, "value") {
             assert_eq!(symbols.get_string_id(&str_sym), Some(str_id));
-            symbols.set_string(str_id, b"new value");
+            symbols.set_string(str_id, "new value");
             symbols.string(str_id);
             assert_eq!(&symbols.get_stringvar_names(), &[str_sym.as_str()]);
             assert!(symbols.symbol_exists(&str_sym));
