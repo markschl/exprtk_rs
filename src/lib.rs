@@ -123,6 +123,14 @@ pub use libc::c_double;
 pub use exprtk::*;
 pub use error::*;
 
+macro_rules! c_string {
+    ($s:expr) => { CString::new($s).expect("String contains nul byte.").as_ptr() }
+}
+
+macro_rules! string_from_ptr {
+    ($s:expr) => { CStr::from_ptr($s).to_string_lossy().into_owned() }
+}
+
 mod exprtk;
 mod error;
 

@@ -1,6 +1,10 @@
 
 use std::fmt;
 use std::error::Error;
+use std::ffi::CStr;
+
+use enum_primitive::FromPrimitive;
+use exprtk_sys::*;
 
 
 pub type ParseResult<T> = Result<T, ParseError>;
@@ -67,5 +71,27 @@ impl fmt::Display for InvalidName {
 impl Error for InvalidName {
     fn description(&self) -> &str {
         "invalid variable name"
+    }
+}
+
+pub(super) unsafe fn get_err(c_parser: *mut CParser) -> ParseError {
+    let e: &CParseError = &*parser_error(c_parser);
+    if e.is_err {
+        let err_out = ParseError {
+            kind: ParseErrorKind::from_i32(e.mode as i32).unwrap_or_else(|| panic!(
+                "Unknown ParseErrorKind enum variant: {}",
+                e.mode
+            )),
+            token_type: string_from_ptr!(e.token_type),
+            token_value: string_from_ptr!(e.token_value),
+            message: string_from_ptr!(e.diagnostic),
+            line: string_from_ptr!(e.error_line),
+            line_no: e.line_no as usize,
+            column_no: e.column_no as usize,
+        };
+        parser_error_free(e as *const CParseError);
+        err_out
+    } else {
+        panic!("Compiler notified about error, but there is none.")
     }
 }

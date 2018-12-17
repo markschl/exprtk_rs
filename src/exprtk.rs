@@ -4,20 +4,10 @@ use std::ptr;
 use std::mem;
 use std::fmt;
 use std::cell::Cell;
-use enum_primitive::FromPrimitive;
 
 use libc::{c_char, size_t, c_double, c_void};
 use exprtk_sys::*;
 use super::*;
-
-
-macro_rules! c_string {
-    ($s:expr) => { CString::new($s).expect("String contains nul byte.").as_ptr() }
-}
-
-macro_rules! string_from_ptr {
-    ($s:expr) => { CStr::from_ptr($s).to_str().unwrap().to_string() }
-}
 
 
 unsafe impl Send for Parser {}
@@ -79,26 +69,8 @@ impl Parser {
         Ok(())
     }
 
-    unsafe fn get_err(&self) -> ParseError {
-        let e: &CParseError = &*parser_error(self.0);
-        if e.is_err {
-            let err_out = ParseError {
-                kind: ParseErrorKind::from_i32(e.mode as i32).unwrap_or_else(|| panic!(
-                    "Unknown ParseErrorKind enum variant: {}",
-                    e.mode
-                )),
-                token_type: string_from_ptr!(e.token_type),
-                token_value: string_from_ptr!(e.token_value),
-                message: string_from_ptr!(e.diagnostic),
-                line: string_from_ptr!(e.error_line),
-                line_no: e.line_no as usize,
-                column_no: e.column_no as usize,
-            };
-            parser_error_free(e as *const CParseError);
-            err_out
-        } else {
-            panic!("Compiler notified about error, but there is none.")
-        }
+    fn get_err(&self) -> ParseError {
+        unsafe { error::get_err(self.0) }
     }
 }
 
