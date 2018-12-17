@@ -1,6 +1,5 @@
 #include "exprtk.hpp"
 
-
 // helpers
 
 char *string_to_cstr(const std::string &s) {
@@ -26,33 +25,30 @@ cstr_list *strings_to_cstr_list(const std::vector<std::string> &v) {
   return out;
 }
 
-extern "C" void free_rust_cstring(char * s);
+extern "C" void free_rust_cstring(char *s);
 
 // for resolving unknown variables
 template <typename T>
-struct symbol_resolver : exprtk::parser<T>::unknown_symbol_resolver
-{
+struct symbol_resolver : exprtk::parser<T>::unknown_symbol_resolver {
   typedef typename exprtk::parser<T>::unknown_symbol_resolver usr_t;
-  char * (*callback)(const char *, void *);
+  char *(*callback)(const char *, void *);
   void *user_data;
 
-  symbol_resolver(char * (*cb)(const char *, void *), void *d)
-  : usr_t(exprtk::parser<T>::unknown_symbol_resolver::e_usrmode_extended)
-  {
+  symbol_resolver(char *(*cb)(const char *, void *), void *d)
+      : usr_t(exprtk::parser<T>::unknown_symbol_resolver::e_usrmode_extended) {
     callback = cb;
     user_data = d;
   }
 
-  virtual bool process(const std::string& unknown_symbol,
-                       exprtk::symbol_table<T>& symbol_table,
-                       std::string&        error_message)
-  {
+  virtual bool process(const std::string &unknown_symbol,
+                       exprtk::symbol_table<T> &symbol_table,
+                       std::string &error_message) {
 
     // in bindings, only one symbol table is allowed per expression
     // -> simplify things by ignoring this parameter
     (void)symbol_table;
 
-    char * msg = (*callback)(unknown_symbol.c_str(), user_data);
+    char *msg = (*callback)(unknown_symbol.c_str(), user_data);
 
     if (msg != NULL) {
       error_message = std::string(msg);
@@ -83,7 +79,8 @@ bool parser_compile(Parser *p, const char *s, Expression *e) {
 }
 
 bool parser_compile_resolve(Parser *p, const char *s, Expression *e,
-    char * (*cb)(const char *, void *), void *user_data) {
+                            char *(*cb)(const char *, void *),
+                            void *user_data) {
 
   UnknownSymbolResolver resolver(cb, user_data);
 
@@ -301,13 +298,12 @@ struct func_result {
   void *fn_pointer;
 };
 
-
 // Simulating BOOST_PP_REPEAT macro for function definitions with
 // different numbers of scalar arguments.
 // https://www.boost.org/doc/libs/1_61_0/libs/preprocessor/doc/topics/techniques.html
 // Whether this is good practice could be debated; it certainly saves from
 // writing a lot of repetitive code
-#define REPEAT(n, m, p) REPEAT ## n(m, p)
+#define REPEAT(n, m, p) REPEAT##n(m, p)
 
 #define REPEAT0(m, p)
 #define REPEAT1(m, p) m(0, p)
@@ -324,32 +320,32 @@ struct func_result {
 // for repeating the same arg
 #define SIMPLE(N, M) M
 // for appending an incrementing number
-#define NUMBERED(N, M) M ## N
+#define NUMBERED(N, M) M##N
 
 // implementing exprtk::ifunction with different No of arguments
 // and providing FFI functions for Rust
 #define FUNC_DEF(T, N)                                                         \
- struct var##N##_func : public exprtk::ifunction<double> {                     \
-   double (*cb)(void *, REPEAT(N, SIMPLE, T));                                 \
-   void *user_data;                                                            \
-   var##N##_func(double (*c)(void *, REPEAT(N, SIMPLE, T)), void *d) : exprtk::ifunction<double>(N) {  \
-     cb = c;                                                                   \
-     user_data = d;                                                            \
-   }                                                                           \
-   double operator()(REPEAT(N, NUMBERED, const double &arg_)) {                \
-     return cb(user_data, REPEAT(N, NUMBERED, arg_));                          \
-   }                                                                           \
-};                                                                             \
+  struct var##N##_func : public exprtk::ifunction<double> {                    \
+    double (*cb)(void *, REPEAT(N, SIMPLE, T));                                \
+    void *user_data;                                                           \
+    var##N##_func(double (*c)(void *, REPEAT(N, SIMPLE, T)), void *d)          \
+        : exprtk::ifunction<double>(N) {                                       \
+      cb = c;                                                                  \
+      user_data = d;                                                           \
+    }                                                                          \
+    double operator()(REPEAT(N, NUMBERED, const double &arg_)) {               \
+      return cb(user_data, REPEAT(N, NUMBERED, arg_));                         \
+    }                                                                          \
+  };                                                                           \
                                                                                \
-  func_result symbol_table_add_func##N(SymbolTable *t, char *name,             \
-                       double (*cb)(void *, REPEAT(N, SIMPLE, T)),             \
-                       void *user_data)                                        \
-  {                                                                            \
+  func_result symbol_table_add_func##N(                                        \
+      SymbolTable *t, char *name, double (*cb)(void *, REPEAT(N, SIMPLE, T)),  \
+      void *user_data) {                                                       \
     var##N##_func *f = new var##N##_func(cb, user_data);                       \
     func_result out;                                                           \
     std::string name_s = std::string(name);                                    \
     out.res = t->add_function(name_s, *f);                                     \
-    if (!out.res) {                               \
+    if (!out.res) {                                                            \
       delete f;                                                                \
     } else {                                                                   \
       out.fn_pointer = (void *)f;                                              \
@@ -369,7 +365,6 @@ FUNC_DEF(double, 7);
 FUNC_DEF(double, 8);
 FUNC_DEF(double, 9);
 FUNC_DEF(double, 10);
-
 
 // Expression
 
