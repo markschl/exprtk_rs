@@ -6,9 +6,9 @@ fn test_var() {
     let mut s = SymbolTable::new();
     let a_id = s.add_variable("a", 0.).unwrap().unwrap();
     let e = Expression::new("a + a / 2", s).unwrap();
-    assert_eq!(e.value(), 0.);
+    assert_relative_eq!(e.value(), 0.);
     e.symbols().value(a_id).unwrap().set(2.);
-    assert_eq!(e.value(), 3.);
+    assert_relative_eq!(e.value(), 3.);
 }
 
 #[test]
@@ -16,7 +16,7 @@ fn test_constant() {
     let mut s = SymbolTable::new();
     s.add_constant("a", 2.).unwrap();
     let e = Expression::new("a + a / 2", s).unwrap();
-    assert_eq!(e.value(), 3.);
+    assert_relative_eq!(e.value(), 3.);
 }
 
 #[test]
@@ -24,9 +24,9 @@ fn test_string() {
     let mut s = SymbolTable::new();
     let s_id = s.add_stringvar("s", b"string").unwrap().unwrap();
     let mut e = Expression::new("s[] + 1", s).unwrap();
-    assert_eq!(e.value(), 7.);
+    assert_relative_eq!(e.value(), 7.);
     e.symbols_mut().set_string(s_id, b"string2");
-    assert_eq!(e.value(), 8.);
+    assert_relative_eq!(e.value(), 8.);
 }
 
 #[test]
@@ -34,9 +34,9 @@ fn test_vector() {
     let mut s = SymbolTable::new();
     let vec_id = s.add_vector("v", &[0., 1., 2., 3.]).unwrap().unwrap();
     let mut e = Expression::new("v[] + v[1] + 1", s).unwrap();
-    assert_eq!(e.value(), 6.);
+    assert_relative_eq!(e.value(), 6.);
     e.symbols_mut().mut_vector(vec_id).unwrap()[1] = 2.;
-    assert_eq!(e.value(), 7.);
+    assert_relative_eq!(e.value(), 7.);
 }
 
 #[test]
@@ -55,7 +55,7 @@ fn test_funcs() {
     let mut s = SymbolTable::new();
     s.add_func1("add_one", |a| a + 1.).unwrap();
     let e = Expression::new("add_one(1)", s).unwrap();
-    assert_eq!(e.value(), 2.);
+    assert_relative_eq!(e.value(), 2.);
 
     let mut s = SymbolTable::new();
     s.add_func1("one", |a| a).unwrap();
@@ -63,7 +63,7 @@ fn test_funcs() {
     s.add_func3("three", |a, b, c| a + b + c).unwrap();
     s.add_func4("four", |a, b, c, d| a + b + c + d).unwrap();
     let e = Expression::new("one(1) + two(1, 1) + three(1, 1 ,1) + four(1, 1, 1, 1)", s).unwrap();
-    assert_eq!(e.value(), 10.);
+    assert_relative_eq!(e.value(), 10.);
 }
 
 #[test]
@@ -98,16 +98,16 @@ fn test_resolver() {
         }
         Ok(())
     }).unwrap();
-    assert_eq!(expr.value(), 12.);
+    assert_relative_eq!(expr.value(), 12.);
 }
 
 #[test]
 fn test_auto_resolver() {
     let (expr, vars) = Expression::parse_vars("a + b", SymbolTable::new()).unwrap();
     assert_eq!(vars, vec![("a".to_string(), 0), ("b".to_string(), 1)]);
-    assert_eq!(expr.value(), 0.);
+    assert_relative_eq!(expr.value(), 0.);
     expr.symbols().value(0).unwrap().set(1.);
-    assert_eq!(expr.value(), 1.);
+    assert_relative_eq!(expr.value(), 1.);
 }
 
 #[test]
@@ -141,7 +141,7 @@ fn test_const() {
     let mut s = SymbolTable::new();
     s.add_constant("a", 1.).unwrap();
     let expr = Expression::new("a + 1", s).unwrap();
-    assert_eq!(expr.value(), 2.);
+    assert_relative_eq!(expr.value(), 2.);
 }
 
 
@@ -168,8 +168,8 @@ fn test_clone() {
     s.add_vector("v", &[1., 2.]).unwrap().unwrap();
     s.add_func1("func", |x| x + 1.).unwrap();
     let expr = Expression::new("a + s[] + v[0] + func(0)", s).unwrap();
-    assert_eq!(expr.value(), 4.);
-    assert_eq!(expr.clone().value(), 4.);
+    assert_relative_eq!(expr.value(), 4.);
+    assert_relative_eq!(expr.clone().value(), 4.);
     assert_eq!(format!("{:?}", expr), format!("{:?}", expr.clone()));
 }
 
@@ -181,13 +181,13 @@ fn test_send() {
     let s_id = s.add_stringvar("s", b"s").unwrap().unwrap();
     let v_id = s.add_vector("v", &[1.]).unwrap().unwrap();
     let mut e = Expression::new("a + s[] + v[0]", s).unwrap();
-    assert_eq!(e.value(), 3.);
+    assert_relative_eq!(e.value(), 3.);
 
     thread::spawn(move || {
-        assert_eq!(e.value(), 3.);
+        assert_relative_eq!(e.value(), 3.);
         e.symbols().value(a_id).unwrap().set(2.);
         e.symbols_mut().set_string(s_id, b"s2");
         e.symbols_mut().mut_vector(v_id).unwrap()[0] = 2.;
-        assert_eq!(e.value(), 6.);
+        assert_relative_eq!(e.value(), 6.);
     });
 }

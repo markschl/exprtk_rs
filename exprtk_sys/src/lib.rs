@@ -21,7 +21,7 @@ pub struct Pair<T, U>(pub T, pub U);
 pub type CStrList = Pair<size_t, *const *const c_char>;
 
 impl CStrList {
-    pub unsafe fn get_slice<'a>(&'a self) -> &'a [*const c_char] {
+    pub unsafe fn get_slice(&self) -> &[*const c_char] {
         slice::from_raw_parts(self.1, self.0 as usize)
     }
 }
@@ -41,8 +41,8 @@ pub struct CParseError {
 
 // for deallocating CString from C
 #[no_mangle]
-pub extern fn free_rust_cstring(s: *mut c_char) {
-    let _ = unsafe { CString::from_raw(s) };
+pub unsafe extern fn free_rust_cstring(s: *mut c_char) {
+    let _ = CString::from_raw(s);
 }
 
 

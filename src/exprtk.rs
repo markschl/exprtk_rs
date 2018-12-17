@@ -65,7 +65,9 @@ impl Parser {
         where F: FnMut(&str, &mut SymbolTable) -> Result<(), S>,
         S: AsRef<str>
         {
-            let (ref mut symbols, ref mut opt_f): &mut (&mut SymbolTable, Option<&mut F>) = unsafe { mem::transmute(user_data) };
+            let (ref mut symbols, ref mut opt_f) = unsafe {
+                &mut *(user_data as *mut (&mut SymbolTable, Option<&mut F>))
+            };
             let name = unsafe { CStr::from_ptr(c_name).to_str().unwrap() };
             opt_f.as_mut().map(|ref mut f| {
                 if let Err(e) = f(name, symbols) {
@@ -78,10 +80,10 @@ impl Parser {
     }
 
     unsafe fn get_err(&self) -> ParseError {
-        let e: &mut CParseError = mem::transmute(parser_error(self.0));
+        let e: &CParseError = &*parser_error(self.0);
         if e.is_err {
             let err_out = ParseError {
-                kind: ParseErrorKind::from_i32(e.mode as i32).expect(&format!(
+                kind: ParseErrorKind::from_i32(e.mode as i32).unwrap_or_else(|| panic!(
                     "Unknown ParseErrorKind enum variant: {}",
                     e.mode
                 )),
@@ -92,7 +94,7 @@ impl Parser {
                 line_no: e.line_no as usize,
                 column_no: e.column_no as usize,
             };
-            parser_error_free(e as *mut CParseError);
+            parser_error_free(e as *const CParseError);
             err_out
         } else {
             panic!("Compiler notified about error, but there is none.")
@@ -135,7 +137,7 @@ impl Expression {
         let e = Expression {
             expr: unsafe { expression_new() },
             string: string.to_string(),
-            symbols: symbols,
+            symbols,
         };
         e.register_symbol_table();
         parser.compile(string, &e)?;
@@ -195,7 +197,7 @@ impl Expression {
         let mut e = Expression {
             expr: unsafe { expression_new() },
             string: string.to_string(),
-            symbols: symbols,
+            symbols,
         };
         e.register_symbol_table();
 
@@ -344,9 +346,7 @@ impl SymbolTable {
     #[inline]
     pub fn value_from_name(&self, name: &str) -> Option<c_double> {
         unsafe {
-            symbol_table_variable_ref(self.sym, c_string!(name))
-                .as_ref()
-                .map(|v| *v)
+            symbol_table_variable_ref(self.sym, c_string!(name)).as_ref().cloned()
         }
     }
 
@@ -661,6 +661,11 @@ func_impl!(add_func10, symbol_table_add_func10, clone_func10,
     h: c_double, i: c_double, j: c_double
 );
 
+impl Default for exprtk::SymbolTable {
+     fn default() -> Self {
+         Self::new()
+     }
+}
 
 impl Drop for SymbolTable {
     fn drop(&mut self) {
@@ -711,7 +716,7 @@ impl fmt::Debug for SymbolTable {
             ),
             format!("[{}]", self.funcs
                 .iter()
-                .map(|f| format!("{}", f.name))
+                .map(|f| f.name.to_string())
                 .collect::<Vec<_>>()
                 .join(",")
             ),
