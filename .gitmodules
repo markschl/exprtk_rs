@@ -1,0 +1,3 @@
+[submodule "exprtk_sys/cpp/exprtk"]
+	path = exprtk_sys/cpp/exprtk
+	url = https://github.com/ArashPartow/exprtk
