@@ -8,3 +8,6 @@ Rust bindings to [ExprTk](http://www.partow.net/programming/exprtk/) library.
 
 Requires at least Runst version 1.37.
 
+* [Documentation](https://docs.rs/exprtk_rs)
+* Run `cargo bench` to compare execution times (also with native execution)
+* Fuzzing was [used to further validate the API](FUZZING.md)

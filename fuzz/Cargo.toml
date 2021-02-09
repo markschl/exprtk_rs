@@ -2,16 +2,18 @@
 [package]
 name = "exprtk_rs-fuzz"
 version = "0.0.1"
-authors = ["Automatically generated"]
+authors = ["<markschl19@gmail.com>"]
 publish = false
+edition = "2018"
 
 [package.metadata]
 cargo-fuzz = true
 
 [dependencies]
 exprtk_rs = { path = ".." }
-libfuzzer-sys = { git = "https://github.com/rust-fuzz/libfuzzer-sys.git" }
-approx = "0.3"
+libfuzzer-sys = "0.3"
+approx = "0.4.0"
+arbitrary = { version = "0.4", features = ["derive"] }
 
 # Prevent this from interfering with workspaces
 [workspace]
