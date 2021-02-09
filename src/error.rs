@@ -87,12 +87,7 @@ impl fmt::Display for ParseError {
     }
 }
 
-impl Error for ParseError {
-    fn description(&self) -> &str {
-        "expression parsing error"
-    }
-}
-
+impl Error for ParseError {}
 
 
 #[derive(Debug, PartialEq)]
@@ -105,8 +100,14 @@ impl fmt::Display for InvalidName {
     }
 }
 
-impl Error for InvalidName {
-    fn description(&self) -> &str {
-        "invalid variable name"
+impl Error for InvalidName {}
+
+
+impl From<InvalidName> for ParseError {
+    fn from(e: InvalidName) -> Self {
+        ParseError::simple_syntax(
+            &e.0,
+            "Non-ASCII character or null byte found in formula"
+        )        
     }
 }

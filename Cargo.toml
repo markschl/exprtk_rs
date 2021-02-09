@@ -8,6 +8,7 @@ license = "MIT"
 keywords = ["math", "formula", "parser", "expression", "evaluate"]
 repository = "https://github.com/markschl/exprtk_rs"
 documentation = "https://docs.rs/exprtk_rs"
+edition = "2018"
 
 [features]
 default = ["comments", "break_continue", "sc_andor", "return_statement",
@@ -31,7 +32,7 @@ enum_primitive = "0.1"
 libc = "0.2"
 
 [dev-dependencies]
-approx = "0.3"
+approx = "0.4.0"
 
 [profile.bench]
 lto = true

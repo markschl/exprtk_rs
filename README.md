@@ -6,4 +6,5 @@
 
 Rust bindings to [ExprTk](http://www.partow.net/programming/exprtk/) library.
 
-[Documentation](https://docs.rs/exprtk_rs)
+Requires at least Runst version 1.37.
+

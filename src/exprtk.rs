@@ -9,18 +9,19 @@ use libc::{c_char, size_t, c_double, c_void};
 use exprtk_sys::*;
 use super::*;
 
-
-unsafe impl Send for Parser {}
+// Sending pointers to CExpression and CSymbolTable
+// around should be safe. Calls to methods with non-mutable
+// access to self should have no side-effects
 unsafe impl Send for Expression {}
 unsafe impl Send for SymbolTable {}
+unsafe impl Sync for Expression {}
+unsafe impl Sync for SymbolTable {}
 
 
-fn c_string(s: &str) -> Option<CString> {
-    if !s.is_ascii() {
-        return None;
-    }
-    CString::new(s).ok()
+fn c_string(s: &str) -> Result<CString, InvalidName> {
+    CString::new(s).map_err(|_| InvalidName(s.to_string()))
 }
+
 
 #[derive(Debug)]
 struct Parser(*mut CParser);
@@ -31,10 +32,7 @@ impl Parser {
     }
 
     fn formula_to_cstring(s: &str) -> Result<CString, ParseError> {
-        c_string(s).ok_or_else(|| ParseError::simple_syntax(
-            s,
-            "Non-ASCII character or null byte found in formula"
-        ))
+        c_string(s).map_err(From::from)
     }
 
     pub fn compile(&self, string: &str, expr: &Expression) -> Result<(), ParseError> {
@@ -118,7 +116,7 @@ impl Expression {
     ///
     /// let mut symbol_table = SymbolTable::new();
     /// symbol_table.add_variable("a", 2.).unwrap();
-    /// let expr = Expression::new("a + 1", symbol_table).unwrap();
+    /// let mut expr = Expression::new("a + 1", symbol_table).unwrap();
     /// assert_eq!(expr.value(), 3.);
     /// ```
     pub fn new(string: &str, symbols: SymbolTable) -> Result<Expression, ParseError> {
@@ -203,7 +201,11 @@ impl Expression {
 
     /// Calculates the value of the expression. Returns `NaN` if the expression was not yet
     /// compiled.
-    pub fn value(&self) -> c_double {
+    /// 
+    /// *Note*: This method requires mutable access to the underlying expression
+    /// object, since executing an expression can have side-effects. Variables
+    /// in the symbol table of the expression can be changed or added.
+    pub fn value(&mut self) -> c_double {
         unsafe { expression_value(self.expr) }
     }
 
@@ -279,7 +281,7 @@ impl SymbolTable {
     }
 
     pub fn add_constant(&mut self, name: &str, value: c_double) -> Result<bool, InvalidName> {
-        let c_name = c_string(name).ok_or_else(|| InvalidName(name.to_string()))?;
+        let c_name = c_string(name)?;
         let rv = unsafe { symbol_table_add_constant(self.sym, c_name.as_ptr(), value) };
         let added = self.validate_added(name, rv, ())?;
         Ok(added.is_some())
@@ -295,7 +297,7 @@ impl SymbolTable {
         // TODO: examine whether it is slower to store the values themselves in the Rust struct
         // (as Cells) and supply the pointers to ExprTk using symbol_table_add_variable
         // would be easier
-        let c_name = c_string(name).ok_or_else(|| InvalidName(name.to_string()))?;
+        let c_name = c_string(name)?;
         let rv =
             unsafe { symbol_table_create_variable(self.sym, c_name.as_ptr(), value as c_double) };
         let res = self.validate_added(name, rv, i)?;
@@ -307,39 +309,43 @@ impl SymbolTable {
     /// Returns the value of a registered variable as modifiable `std::cell::Cell`.
     /// This allows changing the values easily. If the reference to the `Cell` is
     /// kept around, its value can easily be changed multiple times.
+    /// 
+    /// # Panics
+    /// 
+    /// This function will panic if the `var_id` refers to an unknown variable,
+    /// more specifically if it is larger than the largest variable ID.
     ///
     /// # Example:
     /// ```
     /// use exprtk_rs::*;
     ///
     /// let mut symbol_table = SymbolTable::new();
-    /// let id = symbol_table.add_variable("a", 2.).unwrap().unwrap();
-    /// let mut expr = Expression::new("a - 1", symbol_table).unwrap();
+    /// let id = symbol_table.add_variable("a", 2.).expect("Invalid name").expect("Already present");
+    /// let mut expr = Expression::new("a - 1", symbol_table).expect("Compile error");
     /// assert_eq!(expr.value(), 1.);
     ///
-    /// let value = expr.symbols().value(id).unwrap();
+    /// let value = expr.symbols().value(id);
     /// value.set(4.);
     /// assert_eq!(expr.value(), 3.);
     /// ```
     #[inline]
-    pub fn value(&self, var_id: usize) -> Option<&Cell<c_double>> {
+    pub fn value(&self, var_id: usize) -> &Cell<c_double> {
         let ptr = self.values.get(var_id);
         // turn into Option<&mut c_double>
         let var_ref = unsafe { ptr.map(|p| p.as_mut().expect("null pointer!")) };
-        var_ref.map(|r| {
-            // TODO: workaround until Cell::from_mut() becomes stable
-            // (currently behind as_cell feature flag)
-            unsafe { &*(r as *mut _ as *const Cell<_>) }
-        })
+        Cell::from_mut(var_ref.expect("Unknown variable ID"))
     }
 
     /// Returns the value of a variable (whether constant or not)
+    /// 
+    /// # Panics
+    /// 
+    /// This function will panic if the `name` refers to an unknown variable.
     #[inline]
-    pub fn value_from_name(&self, name: &str) -> Option<c_double> {
+    pub fn value_from_name(&self, name: &str) -> Result<c_double, InvalidName> {
         let c_name = c_string(name)?;
-        unsafe {
-            symbol_table_variable_ref(self.sym, c_name.as_ptr()).as_ref().cloned()
-        }
+        let var_ref = unsafe { symbol_table_variable_ref(self.sym, c_name.as_ptr()).as_ref().cloned() };
+        Ok(var_ref.expect("Unknown variable name"))
     }
 
     /// Adds a new string variable. Returns the variable ID that can later be used for `set_string`
@@ -349,7 +355,7 @@ impl SymbolTable {
         let s = StringValue::new(text);
         self.strings.push(s);
 
-        let c_name = c_string(name).ok_or_else(|| InvalidName(name.to_string()))?;
+        let c_name = c_string(name)?;
         let rv = unsafe {
             symbol_table_add_stringvar(self.sym, c_name.as_ptr(), self.strings[i].0, false)
         };
@@ -389,7 +395,7 @@ impl SymbolTable {
         let l = vec.len();
         self.vectors.push(vec.to_vec().into_boxed_slice());
 
-        let c_name = c_string(name).ok_or_else(|| InvalidName(name.to_string()))?;
+        let c_name = c_string(name)?;
         let rv = unsafe {
             symbol_table_add_vector(self.sym, c_name.as_ptr(), self.vectors[i].as_ptr(), l)
         };
@@ -412,7 +418,7 @@ impl SymbolTable {
     #[inline]
     pub fn vector(&self, var_id: usize) -> Option<&[Cell<c_double>]> {
         self.vectors.get(var_id).map(|v| unsafe {
-            // Code equivalent to v.from_mut().as_slice_of_cells(), could be used once stable, but
+            // Code equivalent to Cell::from_mut(v).as_slice_of_cells(), could be used once stable, but
             // would require mutable access to self.vectors, which we don't have here.
             // Alternatively, self.vectors could hold slices of Cells itself. However,
             // SymbolTable::value_vector would then require unsafe code to convert it back.
@@ -423,60 +429,68 @@ impl SymbolTable {
         })
     }
 
+    // Validate result of adding variable / string /...
+    // add_variable() does three checks, and any of them failing leads to `false`.
+    // 1. symbol table sanity
+    // 2. valid name?
+    // 3. symbol exists already?
+    // Here, we want to distinguish the results of the three checks.
     fn validate_added<O>(&self, name: &str, result: bool, out: O) -> Result<Option<O>, InvalidName> {
         if !result {
             let valid = unsafe { symbol_table_valid(self.sym) };
             if !valid {
                 panic!("Bug: SymbolTable state invalid!");
             }
-            return if self.symbol_exists(name) {
-                Ok(None)
-            } else {
-                Err(InvalidName(name.to_string()))
-            };
+            if self.symbol_exists(name) == Ok(false) {
+                return Ok(None);
+            }
+            return Err(InvalidName(name.to_string()));            
         }
         Ok(Some(out))
     }
 
-    fn get_var_ptr(&self, name: &str) -> Option<*mut c_double> {
-        c_string(name).and_then(|c_name| {
-            let rv = unsafe { symbol_table_variable_ref(self.sym, c_name.as_ptr()) };
-            if rv.is_null() { None } else { Some(rv) }
+    fn get_var_ptr(&self, name: &str) -> Result<Option<*mut c_double>, InvalidName> {
+        let c_name = c_string(name)?;
+        let rv = unsafe { symbol_table_variable_ref(self.sym, c_name.as_ptr()) };
+        let rv = if rv.is_null() { None } else { Some(rv) };
+        Ok(rv)
+    }
+
+    /// Returns the 'ID' of a variable or None if not found.
+    /// The function will return `Err(InvalidName)` if the name is not entirely
+    /// composed of ASCII characters.
+    pub fn get_var_id(&self, name: &str) -> Result<Option<usize>, InvalidName> {
+        self.get_var_ptr(name).map(|opt_ptr| {
+            opt_ptr.and_then(|ptr| self.values.iter().position(|&p| p == ptr))
         })
     }
 
-    /// Returns the 'ID' of a variable or None if not found. Panics if the name is not entirely
+    /// Returns the 'ID' of a string or None if not found.
+    /// The function will return `Err(InvalidName)` if the name is not entirely
     /// composed of ASCII characters.
-    pub fn get_var_id(&self, name: &str) -> Option<usize> {
-        self.get_var_ptr(name).and_then(|rv| {
-            self.values.iter().position(|&v| v == rv)
-        })
+    pub fn get_string_id(&self, name: &str) -> Result<Option<usize>, InvalidName> {
+        let c_name = c_string(name)?;
+        let ptr = unsafe { symbol_table_stringvar_ref(self.sym, c_name.as_ptr()) };
+        let rv = if ptr.is_null() {
+            None
+        } else {
+            self.strings.iter().position(|s| s.0 == ptr)
+        };
+        Ok(rv)
     }
 
-    /// Returns the 'ID' of a string or None if not found. Panics if the name is not entirely
+    /// Returns the 'ID' of a vector or None if not found.
+    /// The function will return `Err(InvalidName)` if the name is not entirely
     /// composed of ASCII characters.
-    pub fn get_string_id(&self, name: &str) -> Option<usize> {
-        c_string(name).and_then(|c_name| {
-            let ptr = unsafe { symbol_table_stringvar_ref(self.sym, c_name.as_ptr()) };
-            if ptr.is_null() {
-                None
-            } else {
-                self.strings.iter().position(|s| s.0 == ptr)
-            }
-        })
-    }
-
-    /// Returns the 'ID' of a vector or None if not found. Panics if the name is not entirely
-    /// composed of ASCII characters.
-    pub fn get_vec_id(&self, name: &str) -> Option<usize> {
-        c_string(name).and_then(|c_name| {
-            let ptr = unsafe { symbol_table_vector_ptr(self.sym, c_name.as_ptr()) };
-            if ptr.is_null() {
-                None
-            } else {
-                self.vectors.iter().position(|v| v.as_ptr() == ptr)
-            }
-        })
+    pub fn get_vec_id(&self, name: &str) -> Result<Option<usize>, InvalidName> {
+        let c_name = c_string(name)?;
+        let ptr = unsafe { symbol_table_vector_ptr(self.sym, c_name.as_ptr()) };
+        let rv = if ptr.is_null() {
+            None
+        } else {
+            self.vectors.iter().position(|v| v.as_ptr() == ptr)
+        };
+        Ok(rv)
     }
 
     pub fn clear_variables(&mut self) {
@@ -573,25 +587,22 @@ impl SymbolTable {
         }
     }
 
-    pub fn symbol_exists(&self, name: &str) -> bool {
-        if let Some(c_name) = c_string(name) {
-            return unsafe { symbol_table_symbol_exists(self.sym, c_name.as_ptr()) };
-        }
-        false
+    pub fn symbol_exists(&self, name: &str) -> Result<bool, InvalidName> {
+        let c_name = c_string(name)?;
+        let rv = unsafe { symbol_table_symbol_exists(self.sym, c_name.as_ptr()) };
+        Ok(rv)
     }
 
-    pub fn is_constant_node(&self, name: &str) -> bool {
-        if let Some(c_name) = c_string(name) {
-            return unsafe { symbol_table_is_constant_node(self.sym, c_name.as_ptr()) };
-        }
-        false
+    pub fn is_constant_node(&self, name: &str) -> Result<bool, InvalidName> {
+        let c_name = c_string(name)?;
+        let rv = unsafe { symbol_table_is_constant_node(self.sym, c_name.as_ptr()) };
+        Ok(rv)
     }
 
-    pub fn is_constant_string(&self, name: &str) -> bool {
-        if let Some(c_name) = c_string(name) {
-            return unsafe { symbol_table_is_constant_string(self.sym, c_name.as_ptr()) };
-        }
-        false
+    pub fn is_constant_string(&self, name: &str) -> Result<bool, InvalidName> {
+        let c_name = c_string(name)?;
+        let rv = unsafe { symbol_table_is_constant_string(self.sym, c_name.as_ptr()) };
+        Ok(rv)
     }
 }
 
@@ -615,7 +626,7 @@ macro_rules! func_impl {
                 let func_box = Box::new(func);
                 let func_ptr = Box::into_raw(func_box) as *mut _ as *mut c_void;
 
-                let c_name = c_string(name).ok_or_else(|| InvalidName(name.to_string()))?;
+                let c_name = c_string(name)?;
                 let result = unsafe {
                     $sys_func(self.sym, c_name.as_ptr(), wrapper::<F>, func_ptr)
                 };
@@ -720,14 +731,14 @@ impl fmt::Debug for SymbolTable {
             "SymbolTable {{ values: {}, constants: {}, strings: {}, vectors: {:?}, functions: {} }}",
             format!("[{}]", varnames
                 .iter()
-                .filter(|n| !self.is_constant_node(n))
+                .filter(|n| !self.is_constant_node(n).unwrap())
                 .map(|n| format!("\"{}\": {}", n, self.value_from_name(n).unwrap()))
                 .collect::<Vec<_>>()
                 .join(", ")
             ),
             format!("[{}]", varnames
                 .iter()
-                .filter(|n| self.is_constant_node(n))
+                .filter(|n| self.is_constant_node(n).unwrap())
                 .map(|n| format!("\"{}\": {}", n, self.value_from_name(n).unwrap()))
                 .collect::<Vec<_>>()
                 .join(", ")
@@ -735,14 +746,14 @@ impl fmt::Debug for SymbolTable {
             format!("[{}]", self.get_stringvar_names()
                 .iter()
                 .map(|n| format!("\"{}\": \"{}\"", n,
-                    self.string(self.get_string_id(n).unwrap()).unwrap().get())
+                    self.string(self.get_string_id(n).unwrap().unwrap()).unwrap().get())
                 )
                 .collect::<Vec<_>>()
                 .join(", ")
             ),
             format!("[{}]", self.get_vector_names()
                 .iter()
-                .map(|n| format!("\"{}\": {:?}", n, self.value_vector(self.get_vec_id(n).unwrap()).unwrap()))
+                .map(|n| format!("\"{}\": {:?}", n, self.value_vector(self.get_vec_id(n).unwrap().unwrap()).unwrap()))
                 .collect::<Vec<_>>()
                 .join(", ")
             ),
@@ -763,7 +774,7 @@ impl Clone for SymbolTable {
         // vars
         for n in self.get_variable_names() {
             let v = self.value_from_name(&n).unwrap();
-            if self.is_constant_node(&n) {
+            if self.is_constant_node(&n).unwrap() {
                 s.add_constant(&n, v).unwrap();
             } else {
                 s.add_variable(&n, v).unwrap();
@@ -771,12 +782,12 @@ impl Clone for SymbolTable {
         }
         // strings
         for n in self.get_stringvar_names() {
-            let v = self.string(self.get_string_id(&n).unwrap()).unwrap().get();
+            let v = self.string(self.get_string_id(&n).unwrap().unwrap()).unwrap().get();
             s.add_stringvar(&n, &v).unwrap();
         }
         // vectors
         for n in self.get_vector_names() {
-            let v = self.value_vector(self.get_vec_id(&n).unwrap()).unwrap();
+            let v = self.value_vector(self.get_vec_id(&n).unwrap().unwrap()).unwrap();
             s.add_vector(&n, v).unwrap();
         }
         // functions

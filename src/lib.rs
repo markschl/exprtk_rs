@@ -42,13 +42,12 @@
 //! let mut expression = Expression::new(expression_string, symbol_table).unwrap();
 //!
 //! // this value is a reference to a std::cell::Cell that can be changed
-//! let value = expression.symbols().value(var_id).unwrap();
-//! value.set(-5.);
+//! expression.symbols().value(var_id).set(-5.);
 //!
-//! while value.get() <= 5. {
+//! while expression.symbols().value(var_id).get() <= 5. {
 //!     let y = expression.value();
-//!     println!("{}\t{}", value.get(), y);
-//!     value.set(value.get() + 0.001);
+//!     println!("{}\t{}", expression.symbols().value(var_id).get(), y);
+//!     expression.symbols().value(var_id).set(expression.symbols().value(var_id).get() + 0.001);
 //! }
 //! ```
 //!
@@ -72,10 +71,10 @@
 //! );
 //!
 //! // modify the values
-//! expr.symbols().value(0).unwrap().set(2.); // a
-//! expr.symbols().value(2).unwrap().set(3.); // b
-//! expr.symbols().value(3).unwrap().set(1.); // c
-//! expr.symbols().value(1).unwrap().set(5.); // x
+//! expr.symbols().value(0).set(2.); // a
+//! expr.symbols().value(2).set(3.); // b
+//! expr.symbols().value(3).set(1.); // c
+//! expr.symbols().value(1).set(5.); // x
 //!
 //! assert_eq!(expr.value(), 66.);
 //! ```

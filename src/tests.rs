@@ -1,13 +1,12 @@
-
 use super::*;
 
 #[test]
 fn test_var() {
     let mut s = SymbolTable::new();
     let a_id = s.add_variable("a", 0.).unwrap().unwrap();
-    let e = Expression::new("a + a / 2", s).unwrap();
+    let mut e = Expression::new("a + a / 2", s).unwrap();
     assert_relative_eq!(e.value(), 0.);
-    e.symbols().value(a_id).unwrap().set(2.);
+    e.symbols().value(a_id).set(2.);
     assert_relative_eq!(e.value(), 3.);
 }
 
@@ -15,7 +14,7 @@ fn test_var() {
 fn test_constant() {
     let mut s = SymbolTable::new();
     s.add_constant("a", 2.).unwrap();
-    let e = Expression::new("a + a / 2", s).unwrap();
+    let mut e = Expression::new("a + a / 2", s).unwrap();
     assert_relative_eq!(e.value(), 3.);
 }
 
@@ -54,7 +53,7 @@ fn test_vector_out_of_bounds() {
 fn test_funcs() {
     let mut s = SymbolTable::new();
     s.add_func1("add_one", |a| a + 1.).unwrap();
-    let e = Expression::new("add_one(1)", s).unwrap();
+    let mut e = Expression::new("add_one(1)", s).unwrap();
     assert_relative_eq!(e.value(), 2.);
 
     let mut s = SymbolTable::new();
@@ -62,7 +61,7 @@ fn test_funcs() {
     s.add_func2("two", |a, b| a + b).unwrap();
     s.add_func3("three", |a, b, c| a + b + c).unwrap();
     s.add_func4("four", |a, b, c, d| a + b + c + d).unwrap();
-    let e = Expression::new("one(1) + two(1, 1) + three(1, 1 ,1) + four(1, 1, 1, 1)", s).unwrap();
+    let mut e = Expression::new("one(1) + two(1, 1) + three(1, 1 ,1) + four(1, 1, 1, 1)", s).unwrap();
     assert_relative_eq!(e.value(), 10.);
 }
 
@@ -88,7 +87,7 @@ fn test_parse_err() {
 fn test_resolver() {
     let mut s = SymbolTable::new();
     s.add_variable("a", 1.).unwrap().unwrap();
-    let expr = Expression::handle_unknown("a + b + c + s[] + v[]", s, |name, s| {
+    let mut expr = Expression::handle_unknown("a + b + c + s[] + v[]", s, |name, s| {
         match name {
             "b" => { s.add_variable(name, 1.).unwrap(); },
             "c" => { s.add_constant(name, 1.).unwrap(); },
@@ -103,10 +102,10 @@ fn test_resolver() {
 
 #[test]
 fn test_auto_resolver() {
-    let (expr, vars) = Expression::parse_vars("a + b", SymbolTable::new()).unwrap();
+    let (mut expr, vars) = Expression::parse_vars("a + b", SymbolTable::new()).unwrap();
     assert_eq!(vars, vec![("a".to_string(), 0), ("b".to_string(), 1)]);
     assert_relative_eq!(expr.value(), 0.);
-    expr.symbols().value(0).unwrap().set(1.);
+    expr.symbols().value(0).set(1.);
     assert_relative_eq!(expr.value(), 1.);
 }
 
@@ -140,7 +139,7 @@ fn test_clear() {
 fn test_const() {
     let mut s = SymbolTable::new();
     s.add_constant("a", 1.).unwrap();
-    let expr = Expression::new("a + 1", s).unwrap();
+    let mut expr = Expression::new("a + 1", s).unwrap();
     assert_relative_eq!(expr.value(), 2.);
 }
 
@@ -151,11 +150,11 @@ fn test_ids() {
     let a_id = s.add_variable("a", 1.).unwrap().unwrap();
     let s_id = s.add_stringvar("s", "value").unwrap().unwrap();
     let v_id = s.add_vector("v", &[1., 2.]).unwrap().unwrap();
-    assert_eq!(s.get_var_id("a"), Some(a_id));
-    assert_eq!(s.get_var_id("c"), None);
-    assert_eq!(s.get_string_id("s"), Some(s_id));
-    assert_eq!(s.get_vec_id("v"), Some(v_id));
-    assert_eq!(s.get_vec_id("s"), None);
+    assert_eq!(s.get_var_id("a").unwrap(), Some(a_id));
+    assert_eq!(s.get_var_id("c").unwrap(), None);
+    assert_eq!(s.get_string_id("s").unwrap(), Some(s_id));
+    assert_eq!(s.get_vec_id("v").unwrap(), Some(v_id));
+    assert_eq!(s.get_vec_id("s").unwrap(), None);
 }
 
 #[test]
@@ -165,7 +164,7 @@ fn test_clone() {
     s.add_stringvar("s", "s").unwrap().unwrap();
     s.add_vector("v", &[1., 2.]).unwrap().unwrap();
     s.add_func1("func", |x| x + 1.).unwrap();
-    let expr = Expression::new("a + s[] + v[0] + func(0)", s).unwrap();
+    let mut expr = Expression::new("a + s[] + v[0] + func(0)", s).unwrap();
     assert_relative_eq!(expr.value(), 4.);
     assert_relative_eq!(expr.clone().value(), 4.);
     assert_eq!(format!("{:?}", expr), format!("{:?}", expr.clone()));
@@ -183,7 +182,7 @@ fn test_send() {
 
     thread::spawn(move || {
         assert_relative_eq!(e.value(), 3.);
-        e.symbols().value(a_id).unwrap().set(2.);
+        e.symbols().value(a_id).set(2.);
         e.symbols_mut().set_string(s_id, "s2");
         e.symbols_mut().vector(v_id).unwrap()[0].set(2.);
         assert_relative_eq!(e.value(), 6.);

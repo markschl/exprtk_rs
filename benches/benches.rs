@@ -31,18 +31,18 @@ macro_rules! bench {
             s.add_pi();
             let x_id = s.add_variable("x", 0.).unwrap().unwrap();
             let y_id = s.add_variable("y", 0.).unwrap().unwrap();
-            let e = Expression::new($formula, s).unwrap();
-            let x_value = e.symbols().value(x_id).unwrap();
-            let y_value = e.symbols().value(y_id).unwrap();
+            let mut e = Expression::new($formula, s).unwrap();
+            // let x_value = e.symbols().value(x_id);
+            // let y_value = e.symbols().value(y_id);
 
             b.iter(|| {
                 let mut total = 0.;
-                x_value.set(XMIN);
-                y_value.set(YMIN);
-                while x_value.get() < XMAX {
-                    x_value.set(x_value.get() + DELTA);
-                    while y_value.get() < YMAX {
-                        y_value.set(y_value.get() + DELTA);
+                e.symbols().value(x_id).set(XMIN);
+                e.symbols().value(y_id).set(YMIN);
+                while e.symbols().value(x_id).get() < XMAX {
+                    e.symbols().value(x_id).set(e.symbols().value(x_id).get() + DELTA);
+                    while e.symbols().value(y_id).get() < YMAX {
+                        e.symbols().value(y_id).set(e.symbols().value(y_id).get() + DELTA);
                         total += e.value();
                     }
                 }
@@ -56,7 +56,7 @@ macro_rules! bench {
             s.add_pi();
             let x_id = s.add_variable("x", 0.).unwrap().unwrap();
             let y_id = s.add_variable("y", 0.).unwrap().unwrap();
-            let e = Expression::new($formula, s).unwrap();
+            let mut e = Expression::new($formula, s).unwrap();
             b.iter(|| {
                 let mut total = 0.;
                 let mut x = XMIN;
@@ -65,8 +65,8 @@ macro_rules! bench {
                     x += DELTA;
                     while y < YMAX {
                         y += DELTA;
-                        e.symbols().value(x_id).unwrap().set(x as c_double);
-                        e.symbols().value(y_id).unwrap().set(y as c_double);
+                        e.symbols().value(x_id).set(x as c_double);
+                        e.symbols().value(y_id).set(y as c_double);
                         total += e.value();
                     }
                 }

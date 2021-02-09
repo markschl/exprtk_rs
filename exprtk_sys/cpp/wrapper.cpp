@@ -322,8 +322,9 @@ struct func_result {
 // for appending an incrementing number
 #define NUMBERED(N, M) M##N
 
-// implementing exprtk::ifunction with different No of arguments
+// Implementing exprtk::ifunction with different No of arguments
 // and providing FFI functions for Rust
+// The functions are assumed to have no side effects (not Fn() closures in Rust)
 #define FUNC_DEF(T, N)                                                         \
   struct var##N##_func : public exprtk::ifunction<double> {                    \
     double (*cb)(void *, REPEAT(N, SIMPLE, T));                                \
@@ -332,6 +333,7 @@ struct func_result {
         : exprtk::ifunction<double>(N) {                                       \
       cb = c;                                                                  \
       user_data = d;                                                           \
+      exprtk::disable_has_side_effects(*this);                                 \
     }                                                                          \
     double operator()(REPEAT(N, NUMBERED, const double &arg_)) {               \
       return cb(user_data, REPEAT(N, NUMBERED, arg_));                         \
