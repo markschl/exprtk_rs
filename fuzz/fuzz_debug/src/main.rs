@@ -16,8 +16,7 @@ fn main() {
         .read_to_end(&mut data)
         .expect("could not open file");
     
-    let mut unstructured = Unstructured::new(data.as_slice());
-    let data = Arbitrary::arbitrary(&mut unstructured).unwrap();
+    let data = Arbitrary::arbitrary_take_rest(Unstructured::new(data.as_slice())).unwrap();
     println!("{:?}", data);
 
     validation::validate_input(data);

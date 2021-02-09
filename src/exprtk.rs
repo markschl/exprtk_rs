@@ -441,10 +441,14 @@ impl SymbolTable {
             if !valid {
                 panic!("Bug: SymbolTable state invalid!");
             }
-            if self.symbol_exists(name) == Ok(false) {
-                return Ok(None);
+            // We can't directly validate a name (valid_symbol is private),
+            // but we can check if the variable was added
+            if !self.symbol_exists(name).unwrap() {
+                return Err(InvalidName(name.to_string()));
             }
-            return Err(InvalidName(name.to_string()));            
+            // This must be case 3)
+            assert_eq!(self.symbol_exists(name), Ok(true));
+            return Ok(None);
         }
         Ok(Some(out))
     }
