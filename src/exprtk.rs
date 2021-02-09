@@ -263,7 +263,7 @@ struct FuncData {
 /// were implemented, and the API is sometimes different.
 pub struct SymbolTable {
     sym: *mut CSymbolTable,
-    values: Vec<*mut c_double>,
+    values: Vec<Cell<c_double>>,
     strings: Vec<StringValue>,
     vectors: Vec<Box<[c_double]>>,
     funcs: Vec<FuncData>,
@@ -294,16 +294,12 @@ impl SymbolTable {
     /// by not providing the (optional) `is_constant` option. Use `add_constant()` instead.
     pub fn add_variable(&mut self, name: &str, value: c_double) -> Result<Option<usize>, InvalidName> {
         let i = self.values.len();
-        // TODO: examine whether it is slower to store the values themselves in the Rust struct
-        // (as Cells) and supply the pointers to ExprTk using symbol_table_add_variable
-        // would be easier
+        self.values.push(Cell::new(value));
+        let cell = self.values.last().unwrap();
         let c_name = c_string(name)?;
         let rv =
-            unsafe { symbol_table_create_variable(self.sym, c_name.as_ptr(), value as c_double) };
-        let res = self.validate_added(name, rv, i)?;
-        let ptr = unsafe { symbol_table_variable_ref(self.sym, c_name.as_ptr()) };
-        self.values.push(ptr);
-        Ok(res)
+            unsafe { symbol_table_add_variable(self.sym, c_name.as_ptr(), cell.as_ptr(), false) };
+        self.validate_added(name, rv, i)
     }
 
     /// Returns the value of a registered variable as modifiable `std::cell::Cell`.
@@ -330,10 +326,7 @@ impl SymbolTable {
     /// ```
     #[inline]
     pub fn value(&self, var_id: usize) -> &Cell<c_double> {
-        let ptr = self.values.get(var_id);
-        // turn into Option<&mut c_double>
-        let var_ref = unsafe { ptr.map(|p| p.as_mut().expect("null pointer!")) };
-        Cell::from_mut(var_ref.expect("Unknown variable ID"))
+        &self.values[var_id]
     }
 
     /// Returns the value of a variable (whether constant or not)
@@ -465,7 +458,7 @@ impl SymbolTable {
     /// composed of ASCII characters.
     pub fn get_var_id(&self, name: &str) -> Result<Option<usize>, InvalidName> {
         self.get_var_ptr(name).map(|opt_ptr| {
-            opt_ptr.and_then(|ptr| self.values.iter().position(|&p| p == ptr))
+            opt_ptr.and_then(|ptr| self.values.iter().position(|c| c.as_ptr() == ptr))
         })
     }
 
