@@ -11,11 +11,18 @@ documentation = "https://docs.rs/exprtk_rs"
 edition = "2018"
 
 [features]
-default = ["comments", "break_continue", "sc_andor", "return_statement",
-  "rtl_io_file", "rtl_vecops", "enhanced_features", "superscalar_unroll",
-  "caseinsensitivity"
+default = ["all"]
+all = [
+  "exprtk_sys/comments",
+  "exprtk_sys/break_continue",
+  "exprtk_sys/sc_andor",
+  "exprtk_sys/return_statement",
+  "exprtk_sys/rtl_io_file",
+  "exprtk_sys/rtl_vecops",
+  "exprtk_sys/enhanced_features",
+  "exprtk_sys/superscalar_unroll",
+  "exprtk_sys/caseinsensitivity"
 ]
-debug = ["exprtk_sys/debug"]
 comments = ["exprtk_sys/comments"]
 break_continue = ["exprtk_sys/break_continue"]
 sc_andor = ["exprtk_sys/sc_andor"]
@@ -25,6 +32,7 @@ rtl_vecops = ["exprtk_sys/rtl_vecops"]
 enhanced_features = ["exprtk_sys/enhanced_features"]
 superscalar_unroll = ["exprtk_sys/superscalar_unroll"]
 caseinsensitivity = ["exprtk_sys/caseinsensitivity"]
+debug = ["exprtk_sys/debug"]
 
 [dependencies]
 exprtk_sys = {path="exprtk_sys", version="0.0.7"}
