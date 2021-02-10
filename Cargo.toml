@@ -1,6 +1,6 @@
 [package]
 name = "exprtk_rs"
-version = "0.0.7"
+version = "0.1.0"
 authors = ["<markschl19@gmail.com>"]
 description = "Rust bindings to the ExprTk C++ library (http://www.partow.net/programming/exprtk)"
 readme = "README.md"
