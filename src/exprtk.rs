@@ -13,9 +13,11 @@ use super::*;
 // around should be safe. Calls to methods with non-mutable
 // access to self should have no side-effects
 unsafe impl Send for Expression {}
-unsafe impl Send for SymbolTable {}
 unsafe impl Sync for Expression {}
+unsafe impl Send for SymbolTable {}
 unsafe impl Sync for SymbolTable {}
+unsafe impl Send for StringValue {}
+unsafe impl Sync for StringValue {}
 
 
 fn c_string(s: &str) -> Result<CString, InvalidName> {
