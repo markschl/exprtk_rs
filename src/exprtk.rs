@@ -265,7 +265,7 @@ struct FuncData {
 /// were implemented, and the API is sometimes different.
 pub struct SymbolTable {
     sym: *mut CSymbolTable,
-    values: Vec<Cell<c_double>>,
+    values: Vec<*mut c_double>,
     strings: Vec<StringValue>,
     vectors: Vec<Box<[c_double]>>,
     funcs: Vec<FuncData>,
@@ -295,19 +295,31 @@ impl SymbolTable {
     /// [the one of the underlying library](http://www.partow.net/programming/exprtk/doxygen/classexprtk_1_1symbol__table.html)
     /// by not providing the (optional) `is_constant` option. Use `add_constant()` instead.
     pub fn add_variable(&mut self, name: &str, value: c_double) -> Result<Option<usize>, InvalidName> {
-        let i = self.values.len();
-        self.values.push(Cell::new(value));
-        let cell = self.values.last().unwrap();
+        let var_id = self.values.len();
         let c_name = c_string(name)?;
         let rv =
-            unsafe { symbol_table_add_variable(self.sym, c_name.as_ptr(), cell.as_ptr(), false) };
-        self.validate_added(name, rv, i)
+            unsafe { symbol_table_create_variable(self.sym, c_name.as_ptr(), value as c_double) };
+        let res = self.validate_added(name, rv, var_id)?;
+        let ptr = unsafe { symbol_table_variable_ref(self.sym, c_name.as_ptr()) };
+        self.values.push(ptr);
+        Ok(res)
+    }
+
+    #[inline]
+    unsafe fn _value_mut(&self, var_id: usize) -> &mut c_double {
+        let ptr = self.values.get(var_id).expect("Unknown variable ID");
+        ptr.as_mut().expect("null pointer!")
     }
 
     /// Returns the value of a variable given its variable ID
+    /// 
+    /// # Panics
+    /// 
+    /// This function will panic if the `var_id` refers to an unknown variable,
+    /// more specifically if it is larger than the largest variable ID.
     #[inline]
     pub fn value(&self, var_id: usize) -> c_double {
-        self.values[var_id].get()
+        unsafe { *self._value_mut(var_id) }
     }
 
     /// Returns a mutable reference to the value of a registered variable.
@@ -335,7 +347,7 @@ impl SymbolTable {
     /// ```
     #[inline]
     pub fn value_mut(&mut self, var_id: usize) -> &mut c_double {
-        self.values[var_id].get_mut()
+        unsafe { self._value_mut(var_id) }
     }
 
     /// Returns the value of a registered variable as modifiable `std::cell::Cell`.
@@ -363,7 +375,8 @@ impl SymbolTable {
     /// ```
     #[inline]
     pub fn value_cell(&self, var_id: usize) -> &Cell<c_double> {
-        &self.values[var_id]
+        let mut_ref = unsafe { self._value_mut(var_id) };
+        Cell::from_mut(mut_ref)
     }
 
     /// Returns the value of a variable (whether constant or not)
@@ -489,7 +502,7 @@ impl SymbolTable {
         Ok(Some(out))
     }
 
-    fn get_var_ptr(&self, name: &str) -> Result<Option<*mut c_double>, InvalidName> {
+    fn get_var_ptr_from_name(&self, name: &str) -> Result<Option<*mut c_double>, InvalidName> {
         let c_name = c_string(name)?;
         let rv = unsafe { symbol_table_variable_ref(self.sym, c_name.as_ptr()) };
         let rv = if rv.is_null() { None } else { Some(rv) };
@@ -500,8 +513,8 @@ impl SymbolTable {
     /// The function will return `Err(InvalidName)` if the name is not entirely
     /// composed of ASCII characters.
     pub fn get_var_id(&self, name: &str) -> Result<Option<usize>, InvalidName> {
-        self.get_var_ptr(name).map(|opt_ptr| {
-            opt_ptr.and_then(|ptr| self.values.iter().position(|c| c.as_ptr() == ptr))
+        self.get_var_ptr_from_name(name).map(|opt_ptr| {
+            opt_ptr.and_then(|ptr| self.values.iter().position(|&p| p == ptr))
         })
     }
 
