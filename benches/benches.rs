@@ -32,41 +32,15 @@ macro_rules! bench {
             let x_id = s.add_variable("x", 0.).unwrap().unwrap();
             let y_id = s.add_variable("y", 0.).unwrap().unwrap();
             let mut e = Expression::new($formula, s).unwrap();
-            // let x_value = e.symbols().value(x_id);
-            // let y_value = e.symbols().value(y_id);
 
             b.iter(|| {
                 let mut total = 0.;
-                e.symbols().value(x_id).set(XMIN);
-                e.symbols().value(y_id).set(YMIN);
-                while e.symbols().value(x_id).get() < XMAX {
-                    e.symbols().value(x_id).set(e.symbols().value(x_id).get() + DELTA);
-                    while e.symbols().value(y_id).get() < YMAX {
-                        e.symbols().value(y_id).set(e.symbols().value(y_id).get() + DELTA);
-                        total += e.value();
-                    }
-                }
-            });
-        }
-
-        // Retrieve the Cell each time again for changing the value
-        #[bench]
-        fn $name_id(b: &mut Bencher) {
-            let mut s = SymbolTable::new();
-            s.add_pi();
-            let x_id = s.add_variable("x", 0.).unwrap().unwrap();
-            let y_id = s.add_variable("y", 0.).unwrap().unwrap();
-            let mut e = Expression::new($formula, s).unwrap();
-            b.iter(|| {
-                let mut total = 0.;
-                let mut x = XMIN;
-                let mut y = YMIN;
-                while x < XMAX {
-                    x += DELTA;
-                    while y < YMAX {
-                        y += DELTA;
-                        e.symbols().value(x_id).set(x as c_double);
-                        e.symbols().value(y_id).set(y as c_double);
+                e.symbols().value_cell(x_id).set(XMIN);
+                e.symbols().value_cell(y_id).set(YMIN);
+                while e.symbols().value(x_id) < XMAX {
+                    *e.symbols_mut().value_mut(x_id) += DELTA;
+                    while e.symbols().value(y_id) < YMAX {
+                        *e.symbols_mut().value_mut(y_id) += DELTA;
                         total += e.value();
                     }
                 }

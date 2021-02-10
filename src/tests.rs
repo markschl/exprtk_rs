@@ -6,7 +6,7 @@ fn test_var() {
     let a_id = s.add_variable("a", 0.).unwrap().unwrap();
     let mut e = Expression::new("a + a / 2", s).unwrap();
     assert_relative_eq!(e.value(), 0.);
-    e.symbols().value(a_id).set(2.);
+    e.symbols().value_cell(a_id).set(2.);
     assert_relative_eq!(e.value(), 3.);
 }
 
@@ -34,7 +34,7 @@ fn test_vector() {
     let vec_id = s.add_vector("v", &[0., 1., 2., 3.]).unwrap().unwrap();
     let mut e = Expression::new("v[] + v[1] + 1", s).unwrap();
     assert_relative_eq!(e.value(), 6.);
-    e.symbols_mut().vector(vec_id).unwrap()[1].set(2.);
+    e.symbols_mut().vector_mut(vec_id).unwrap()[1] = 2.;
     assert_relative_eq!(e.value(), 7.);
 }
 
@@ -105,7 +105,7 @@ fn test_auto_resolver() {
     let (mut expr, vars) = Expression::parse_vars("a + b", SymbolTable::new()).unwrap();
     assert_eq!(vars, vec![("a".to_string(), 0), ("b".to_string(), 1)]);
     assert_relative_eq!(expr.value(), 0.);
-    expr.symbols().value(0).set(1.);
+    expr.symbols().value_cell(0).set(1.);
     assert_relative_eq!(expr.value(), 1.);
 }
 
@@ -182,9 +182,9 @@ fn test_send() {
 
     thread::spawn(move || {
         assert_relative_eq!(e.value(), 3.);
-        e.symbols().value(a_id).set(2.);
+        e.symbols().value_cell(a_id).set(2.);
         e.symbols_mut().set_string(s_id, "s2");
-        e.symbols_mut().vector(v_id).unwrap()[0].set(2.);
+        e.symbols_mut().vector_mut(v_id).unwrap()[0] = 2.;
         assert_relative_eq!(e.value(), 6.);
     });
 }

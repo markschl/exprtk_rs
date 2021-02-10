@@ -6,18 +6,20 @@
 //! were considerably simplified. Each [Expression](struct.Expression.html) owns a
 //! [SymbolTable](struct.SymbolTable.html), they cannot be shared between different instances,
 //! and multiple symbol tables per expression are not possible.
+//! 
 //! Variables are owned by the `SymbolTable` instance. The functions for adding variables
 //! ([add_variable()](exprtk/struct.SymbolTable.html#method.add_variable)), strings
 //! ([add_stringvar()](exprtk/struct.SymbolTable.html#method.add_stringvar)), vectors
 //! ([add_vector()](exprtk/struct.SymbolTable.html#method.add_vector)) all return an `usize`,
 //! which is a _variable ID_. This ID can be used to later get symbol values and modify them.
-//! Scalars are modified via `std::cell::Cell` types without requiring mutable access to the
-//! `SymbolTable`. Strings are changed using [set_string()](exprtk/struct.SymbolTable.html#method.set_string),
+//! Scalars are either modified via mutable references or via `std::cell::Cell` types without
+//! the requirement of mutable access to the `SymbolTable`. 
+//! Strings are changed using [set_string()](exprtk/struct.SymbolTable.html#method.set_string),
 //! which requires mutable access.
-//!
-//! There may be a more idiomatic way to represent the whole API in Rust, but it seems difficult to
-//! me to integrate with Rust's concepts of lifetimes and mutable/immutable borrowing.
-//! Suggestions are of course welcome.
+//! Since access and mutation through variable IDs requires a bounds check, these operations
+//! are slower than direct modification through pointers, as done in C++. The performance impact
+//! is naturally more severe for small expressions with fast running times, but seems not too
+//! problematic in most cases. Run `cargo bench` to see the impact (compare with unsafe variant).
 //!
 //! Since there is no guarantee that `double` is always `f64`, the `c_double` type is used all
 //! over the library. Other precisions are currently not supported.
@@ -42,12 +44,12 @@
 //! let mut expression = Expression::new(expression_string, symbol_table).unwrap();
 //!
 //! // this value is a reference to a std::cell::Cell that can be changed
-//! expression.symbols().value(var_id).set(-5.);
+//! expression.symbols().value_cell(var_id).set(-5.);
 //!
-//! while expression.symbols().value(var_id).get() <= 5. {
+//! while expression.symbols().value(var_id) <= 5. {
 //!     let y = expression.value();
-//!     println!("{}\t{}", expression.symbols().value(var_id).get(), y);
-//!     expression.symbols().value(var_id).set(expression.symbols().value(var_id).get() + 0.001);
+//!     println!("{}\t{}", expression.symbols().value(var_id), y);
+//!     *expression.symbols_mut().value_mut(var_id) += 0.001;
 //! }
 //! ```
 //!
@@ -71,10 +73,10 @@
 //! );
 //!
 //! // modify the values
-//! expr.symbols().value(0).set(2.); // a
-//! expr.symbols().value(2).set(3.); // b
-//! expr.symbols().value(3).set(1.); // c
-//! expr.symbols().value(1).set(5.); // x
+//! expr.symbols().value_cell(0).set(2.); // a
+//! expr.symbols().value_cell(2).set(3.); // b
+//! expr.symbols().value_cell(3).set(1.); // c
+//! expr.symbols().value_cell(1).set(5.); // x
 //!
 //! assert_eq!(expr.value(), 66.);
 //! ```

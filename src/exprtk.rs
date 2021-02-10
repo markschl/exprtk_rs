@@ -302,9 +302,44 @@ impl SymbolTable {
         self.validate_added(name, rv, i)
     }
 
+    /// Returns the value of a variable given its variable ID
+    #[inline]
+    pub fn value(&self, var_id: usize) -> c_double {
+        self.values[var_id].get()
+    }
+
+    /// Returns a mutable reference to the value of a registered variable.
+    /// 
+    /// # Panics
+    /// 
+    /// This function will panic if the `var_id` refers to an unknown variable,
+    /// more specifically if it is larger than the largest variable ID.
+    ///
+    /// # Example:
+    /// ```
+    /// use std::f64::consts::PI;
+    /// use exprtk_rs::*;
+    ///
+    /// let mut symbol_table = SymbolTable::new();
+    /// let x_id = symbol_table.add_variable("x", 0.).expect("Invalid name").expect("Already present");
+    /// let mut expr = Expression::new("sin(x)", symbol_table).expect("Compile error");
+    /// assert_eq!(expr.value(), 0.);
+    ///
+    /// let mut x = 0.;
+    /// while expr.symbols().value(x_id) <= 2. * PI {
+    ///     *expr.symbols_mut().value_mut(x_id) += 0.1;
+    ///     let y = expr.value();
+    /// }
+    /// ```
+    #[inline]
+    pub fn value_mut(&mut self, var_id: usize) -> &mut c_double {
+        self.values[var_id].get_mut()
+    }
+
     /// Returns the value of a registered variable as modifiable `std::cell::Cell`.
-    /// This allows changing the values easily. If the reference to the `Cell` is
-    /// kept around, its value can easily be changed multiple times.
+    /// This is an alternative access to `value_mut` and allows changing the values
+    /// easily. If the reference to the `Cell` is kept around, its value can be
+    /// changed multiple times.
     /// 
     /// # Panics
     /// 
@@ -320,12 +355,12 @@ impl SymbolTable {
     /// let mut expr = Expression::new("a - 1", symbol_table).expect("Compile error");
     /// assert_eq!(expr.value(), 1.);
     ///
-    /// let value = expr.symbols().value(id);
+    /// let value = expr.symbols().value_cell(id);
     /// value.set(4.);
     /// assert_eq!(expr.value(), 3.);
     /// ```
     #[inline]
-    pub fn value(&self, var_id: usize) -> &Cell<c_double> {
+    pub fn value_cell(&self, var_id: usize) -> &Cell<c_double> {
         &self.values[var_id]
     }
 
@@ -362,7 +397,7 @@ impl SymbolTable {
 
     #[inline]
     pub fn set_string(&mut self, var_id: usize, text: &str) -> bool {
-        if let Some(s) = self.mut_string(var_id) {
+        if let Some(s) = self.string_mut(var_id) {
             s.set(text);
             return true;
         }
@@ -377,7 +412,7 @@ impl SymbolTable {
 
     /// Returns a mutable reference to a string variable given its ID.
     #[inline]
-    pub fn mut_string(&mut self, var_id: usize) -> Option<&mut StringValue> {
+    pub fn string_mut(&mut self, var_id: usize) -> Option<&mut StringValue> {
         self.strings.get_mut(var_id)
     }
 
@@ -402,14 +437,20 @@ impl SymbolTable {
 
     /// Returns an immutable reference to a vector given its variable ID.
     #[inline]
-    pub fn value_vector(&self, var_id: usize) -> Option<&[c_double]> {
+    pub fn vector(&self, var_id: usize) -> Option<&[c_double]> {
         self.vectors.get(var_id).map(|v| &**v)
     }
 
+    /// Returns an mutable reference to a vector given its variable ID.
+    #[inline]
+    pub fn vector_mut(&mut self, var_id: usize) -> Option<&mut [c_double]> {
+        self.vectors.get_mut(var_id).map(|v| &mut **v)
+    }
+    
     /// Returns a reference to a vector given its variable ID. The values are of the type
     /// `std::cell::Cell`, and can thus be modified without mutable access to `SymbolTable`
     #[inline]
-    pub fn vector(&self, var_id: usize) -> Option<&[Cell<c_double>]> {
+    pub fn vector_of_cells(&self, var_id: usize) -> Option<&[Cell<c_double>]> {
         self.vectors.get(var_id).map(|v| unsafe {
             // Code equivalent to Cell::from_mut(v).as_slice_of_cells(), could be used once stable, but
             // would require mutable access to self.vectors, which we don't have here.
@@ -750,7 +791,7 @@ impl fmt::Debug for SymbolTable {
             ),
             format!("[{}]", self.get_vector_names()
                 .iter()
-                .map(|n| format!("\"{}\": {:?}", n, self.value_vector(self.get_vec_id(n).unwrap().unwrap()).unwrap()))
+                .map(|n| format!("\"{}\": {:?}", n, self.vector(self.get_vec_id(n).unwrap().unwrap()).unwrap()))
                 .collect::<Vec<_>>()
                 .join(", ")
             ),
@@ -784,7 +825,7 @@ impl Clone for SymbolTable {
         }
         // vectors
         for n in self.get_vector_names() {
-            let v = self.value_vector(self.get_vec_id(&n).unwrap().unwrap()).unwrap();
+            let v = self.vector(self.get_vec_id(&n).unwrap().unwrap()).unwrap();
             s.add_vector(&n, v).unwrap();
         }
         // functions

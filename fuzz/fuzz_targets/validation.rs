@@ -32,8 +32,8 @@ pub fn validate_input(data: Data) {
     }
 
     if let Ok(Some(var_id)) = symbols.add_variable(&var_sym, 1.) {
-        symbols.value(var_id).set(2.);
-        symbols.value(var_id);
+        symbols.value_cell(var_id).set(2.);
+        symbols.value_cell(var_id);
         assert_eq!(&symbols.get_variable_names(), &[var_sym.as_str()]);
         assert!(symbols.symbol_exists(&var_sym).unwrap());
     }
@@ -58,7 +58,7 @@ pub fn validate_input(data: Data) {
 
     if let Ok(Some(vec_id)) = symbols.add_vector(&vec_sym, &[1., 2.]) {
         assert_eq!(symbols.get_vec_id(&vec_sym).unwrap(), Some(vec_id));
-        symbols.vector(vec_id).unwrap()[0].set(0.);
+        symbols.vector_mut(vec_id).unwrap()[0] = 0.;
         assert_eq!(&symbols.get_vector_names(), &[vec_sym.as_str()]);
         assert!(symbols.symbol_exists(&vec_sym).unwrap());
     }
