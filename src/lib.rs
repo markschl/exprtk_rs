@@ -121,8 +121,6 @@
 
 #[macro_use]
 extern crate enum_primitive;
-extern crate exprtk_sys;
-extern crate libc;
 
 pub use error::*;
 pub use exprtk::*;
@@ -139,7 +137,3 @@ mod exprtk;
 
 #[cfg(test)]
 mod tests;
-
-#[cfg(test)]
-#[macro_use]
-extern crate approx;
