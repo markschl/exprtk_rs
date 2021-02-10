@@ -1,15 +1,14 @@
 #![feature(test)]
 #![allow(unused_variables)]
 
-extern crate test;
 extern crate exprtk_rs;
 extern crate exprtk_sys;
+extern crate test;
 
-use std::f64::consts::PI;
+use self::test::Bencher;
 use exprtk_rs::*;
 use exprtk_sys::*;
-use self::test::Bencher;
-
+use std::f64::consts::PI;
 
 // These benchmarks are equivalent to some of the ExprTk benchmarks
 
@@ -18,7 +17,6 @@ const XMAX: c_double = 100.;
 const YMIN: c_double = -100.;
 const YMAX: c_double = 100.;
 const DELTA: c_double = 0.0111;
-
 
 macro_rules! bench {
     ($name:ident, $name_id:ident, $name_noset:ident, $name_set_unsafe:ident,
@@ -51,9 +49,10 @@ macro_rules! bench {
         // The pointers are directly incremented
         #[bench]
         fn $name_set_unsafe(b: &mut Bencher) {
-
             macro_rules! c_string {
-                ($s:expr) => { ::std::ffi::CString::new($s).unwrap().as_ptr() }
+                ($s:expr) => {
+                    ::std::ffi::CString::new($s).unwrap().as_ptr()
+                };
             }
 
             let mut x = 0.;
@@ -77,7 +76,7 @@ macro_rules! bench {
                     y = YMIN;
                     while x < XMAX {
                         x += DELTA;
-                        while y < YMAX  {
+                        while y < YMAX {
                             y += DELTA;
                             total += expression_value(e);
                         }
@@ -105,101 +104,206 @@ macro_rules! bench {
                 }
             });
         }
-     };
+    };
 }
 
-
-
-bench!(bench1, bench1_id, bench1_noset, bench1_unsafe,
+bench!(
+    bench1,
+    bench1_id,
+    bench1_noset,
+    bench1_unsafe,
     "(y + x)",
-    bench1_native, x, y, x + y
+    bench1_native,
+    x,
+    y,
+    x + y
 );
 
-bench!(bench2, bench2_id, bench2_noset, bench2_unsafe,
+bench!(
+    bench2,
+    bench2_id,
+    bench2_noset,
+    bench2_unsafe,
     "2 * (y + x)",
-    bench2_native, x, y, 2. * (y + x)
+    bench2_native,
+    x,
+    y,
+    2. * (y + x)
 );
 
-bench!(bench3, bench3_id, bench3_noset, bench3_unsafe,
+bench!(
+    bench3,
+    bench3_id,
+    bench3_noset,
+    bench3_unsafe,
     "(2 * y + 2 * x)",
-    bench3_native, x, y,
+    bench3_native,
+    x,
+    y,
     2. * y + 2. * x
 );
 
-bench!(bench4, bench4_id, bench4_noset, bench4_unsafe,
+bench!(
+    bench4,
+    bench4_id,
+    bench4_noset,
+    bench4_unsafe,
     "((1.23 * x^2) / y) - 123.123",
-    bench4_native, x, y,
+    bench4_native,
+    x,
+    y,
     ((1.23 * x.powf(2.)) / y) - 123.123
 );
 
-bench!(bench5, bench5_id, bench5_noset, bench5_unsafe,
+bench!(
+    bench5,
+    bench5_id,
+    bench5_noset,
+    bench5_unsafe,
     "(y + x / y) * (x - y / x)",
-    bench5_native, x, y,
+    bench5_native,
+    x,
+    y,
     (y + x / y) * (x - y / x)
 );
 
-bench!(bench6, bench6_id, bench6_noset, bench6_unsafe,
+bench!(
+    bench6,
+    bench6_id,
+    bench6_noset,
+    bench6_unsafe,
     "x / ((x + y) + (x - y)) / y",
-    bench6_native, x, y,
+    bench6_native,
+    x,
+    y,
     x / ((x + y) + (x - y)) / y
 );
 
-bench!(bench7, bench7_id, bench7_noset, bench7_unsafe,
+bench!(
+    bench7,
+    bench7_id,
+    bench7_noset,
+    bench7_unsafe,
     "1 - ((x * y) + (y / x)) - 3",
-    bench7_native, x, y,
+    bench7_native,
+    x,
+    y,
     1. - ((x * y) + (y / x)) - 3.
 );
 
-bench!(bench8, bench8_id, bench8_noset, bench8_unsafe,
+bench!(
+    bench8,
+    bench8_id,
+    bench8_noset,
+    bench8_unsafe,
     "(5.5 + x) + (2 * x - 2 / 3 * y) * (x / 3 + y / 4) + (y + 7.7)",
-    bench8_native, x, y,
+    bench8_native,
+    x,
+    y,
     (5.5 + x) + (2. * x - 2. / 3. * y) * (x / 3. + y / 4.) + (y + 7.7)
 );
 
-bench!(bench9, bench9_id, bench9_noset, bench9_unsafe,
+bench!(
+    bench9,
+    bench9_id,
+    bench9_noset,
+    bench9_unsafe,
     "1.1x^1 + 2.2y^2 - 3.3x^3 + 4.4y^15 - 5.5x^23 + 6.6y^55",
-    bench9_native, x, y,
-    1.1*x.powf(1.) + 2.2*y.powf(2.) - 3.3*x.powf(3.) + 4.4*y.powf(15.) - 5.5*x.powf(23.) + 6.6*y.powf(55.)
+    bench9_native,
+    x,
+    y,
+    1.1 * x.powf(1.) + 2.2 * y.powf(2.) - 3.3 * x.powf(3.) + 4.4 * y.powf(15.) - 5.5 * x.powf(23.)
+        + 6.6 * y.powf(55.)
 );
 
-bench!(bench10, bench10_id, bench10_noset, bench10_unsafe,
+bench!(
+    bench10,
+    bench10_id,
+    bench10_noset,
+    bench10_unsafe,
     "sin(2 * x) + cos(pi / y)",
-    bench10_native, x, y,
+    bench10_native,
+    x,
+    y,
     (2. * x).sin() + (PI / y).cos()
 );
 
-bench!(bench11, bench11_id, bench11_noset, bench11_unsafe,
+bench!(
+    bench11,
+    bench11_id,
+    bench11_noset,
+    bench11_unsafe,
     "1 - sin(2 * x) + cos(pi / y)",
-    bench11_native, x, y,
+    bench11_native,
+    x,
+    y,
     1. - (2. * x).sin() + (PI / y).cos()
 );
 
-bench!(bench12, bench12_id, bench12_noset, bench12_unsafe,
+bench!(
+    bench12,
+    bench12_id,
+    bench12_noset,
+    bench12_unsafe,
     "sqrt(111.111 - sin(2 * x) + cos(pi / y) / 333.333)",
-    bench12_native, x, y,
+    bench12_native,
+    x,
+    y,
     (111.111 - (2. * x).sin() + (PI / y).sin() / 333.333).sqrt()
 );
 
-bench!(bench13, bench13_id, bench13_noset, bench13_unsafe,
+bench!(
+    bench13,
+    bench13_id,
+    bench13_noset,
+    bench13_unsafe,
     "(x^2 / sin(2 * pi / y)) - x / 2",
-    bench13_native, x, y,
+    bench13_native,
+    x,
+    y,
     (x.powf(2.) / (2. * PI / y).sin()) - x / 2.
 );
 
-bench!(bench14, bench14_id, bench14_noset, bench14_unsafe,
+bench!(
+    bench14,
+    bench14_id,
+    bench14_noset,
+    bench14_unsafe,
     "x + (cos(y - sin(2 / x * pi)) - sin(x - cos(2 * y / pi))) - y",
-    bench14_native, x, y,
+    bench14_native,
+    x,
+    y,
     x + ((y - (2. / x * PI).sin()).cos() - (x - (2. * y / PI).cos()).sin()) - y
 );
 
-bench!(bench16, bench16_id, bench16_noset, bench16_unsafe,
+bench!(
+    bench16,
+    bench16_id,
+    bench16_noset,
+    bench16_unsafe,
     "max(3.33, min(sqrt(1 - sin(2 * x) + cos(pi / y) / 3), 1.11))",
-    bench16_native, x, y,
-    (3.33 as c_double).max((1.11 as c_double).min(1. - (2. * x).sin() + (PI / y).cos() / 3.).sqrt())
+    bench16_native,
+    x,
+    y,
+    (3.33 as c_double).max(
+        (1.11 as c_double)
+            .min(1. - (2. * x).sin() + (PI / y).cos() / 3.)
+            .sqrt()
+    )
 );
 
-bench!(bench17, bench17_id, bench17_noset, bench17_unsafe,
+bench!(
+    bench17,
+    bench17_id,
+    bench17_noset,
+    bench17_unsafe,
     "if((y + (x * 2.2)) <= (x + y + 1.1), x - y, x * y) + 2 * pi / x",
-    bench17_native, x, y,
-    (if (y + (x * 2.2)) <= (x + y + 1.1) { x - y } else { x * y }) + 2. * PI / x
+    bench17_native,
+    x,
+    y,
+    (if (y + (x * 2.2)) <= (x + y + 1.1) {
+        x - y
+    } else {
+        x * y
+    }) + 2. * PI / x
 );

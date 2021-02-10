@@ -1,11 +1,9 @@
-
-use std::fmt;
 use std::error::Error;
 use std::ffi::CStr;
+use std::fmt;
 
 use enum_primitive::FromPrimitive;
 use exprtk_sys::*;
-
 
 pub type ParseResult<T> = Result<T, ParseError>;
 
@@ -38,10 +36,8 @@ impl ParseError {
         let e: &CParseError = &*parser_error(c_parser);
         if e.is_err {
             let err_out = ParseError {
-                kind: ParseErrorKind::from_i32(e.mode as i32).unwrap_or_else(|| panic!(
-                    "Unknown ParseErrorKind enum variant: {}",
-                    e.mode
-                )),
+                kind: ParseErrorKind::from_i32(e.mode as i32)
+                    .unwrap_or_else(|| panic!("Unknown ParseErrorKind enum variant: {}", e.mode)),
                 token_type: string_from_ptr!(e.token_type),
                 token_value: string_from_ptr!(e.token_value),
                 message: string_from_ptr!(e.diagnostic),
@@ -76,10 +72,7 @@ impl fmt::Display for ParseError {
             write!(
                 f,
                 "Parse error at line {}, column {} ({}): {}",
-                self.line_no,
-                self.column_no,
-                self.token_value,
-                self.message
+                self.line_no, self.column_no, self.token_value, self.message
             )
         } else {
             write!(f, "Parse error at {}: {}", self.token_value, self.message)
@@ -89,10 +82,8 @@ impl fmt::Display for ParseError {
 
 impl Error for ParseError {}
 
-
 #[derive(Debug, PartialEq)]
 pub struct InvalidName(pub String);
-
 
 impl fmt::Display for InvalidName {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -102,12 +93,8 @@ impl fmt::Display for InvalidName {
 
 impl Error for InvalidName {}
 
-
 impl From<InvalidName> for ParseError {
     fn from(e: InvalidName) -> Self {
-        ParseError::simple_syntax(
-            &e.0,
-            "Non-ASCII character or null byte found in formula"
-        )        
+        ParseError::simple_syntax(&e.0, "Non-ASCII character or null byte found in formula")
     }
 }

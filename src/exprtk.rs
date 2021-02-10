@@ -1,13 +1,13 @@
-use std::ops::Drop;
-use std::ffi::*;
-use std::ptr;
-use std::mem;
-use std::fmt;
 use std::cell::Cell;
+use std::ffi::*;
+use std::fmt;
+use std::mem;
+use std::ops::Drop;
+use std::ptr;
 
-use libc::{c_char, size_t, c_double, c_void};
-use exprtk_sys::*;
 use super::*;
+use exprtk_sys::*;
+use libc::{c_char, c_double, c_void, size_t};
 
 // Sending pointers to CExpression and CSymbolTable
 // around should be safe. Calls to methods with non-mutable
@@ -19,11 +19,9 @@ unsafe impl Sync for SymbolTable {}
 unsafe impl Send for StringValue {}
 unsafe impl Sync for StringValue {}
 
-
 fn c_string(s: &str) -> Result<CString, InvalidName> {
     CString::new(s).map_err(|_| InvalidName(s.to_string()))
 }
-
 
 #[derive(Debug)]
 struct Parser(*mut CParser);
@@ -53,34 +51,44 @@ impl Parser {
         expr: &mut Expression,
         mut func: F,
     ) -> Result<(), ParseError>
-    where F: FnMut(&str, &mut SymbolTable) -> Result<(), S>,
-          S: AsRef<str>
+    where
+        F: FnMut(&str, &mut SymbolTable) -> Result<(), S>,
+        S: AsRef<str>,
     {
         let formula = Self::formula_to_cstring(string)?;
         let expr_ptr = expr.expr;
         let symbols = expr.symbols_mut();
         let mut user_data = (symbols, &mut func);
         unsafe {
-            let r = parser_compile_resolve(self.0, formula.as_ptr(), expr_ptr, wrapper::<F, S>, &mut user_data as *const _ as *mut c_void);
+            let r = parser_compile_resolve(
+                self.0,
+                formula.as_ptr(),
+                expr_ptr,
+                wrapper::<F, S>,
+                &mut user_data as *const _ as *mut c_void,
+            );
             if !r {
                 return Err(self.get_err());
             }
         };
 
-        extern fn wrapper<F, S>(c_name: *const c_char, user_data: *mut c_void) -> *const c_char
-        where F: FnMut(&str, &mut SymbolTable) -> Result<(), S>,
-        S: AsRef<str>
+        extern "C" fn wrapper<F, S>(c_name: *const c_char, user_data: *mut c_void) -> *const c_char
+        where
+            F: FnMut(&str, &mut SymbolTable) -> Result<(), S>,
+            S: AsRef<str>,
         {
-            let (ref mut symbols, ref mut opt_f) = unsafe {
-                &mut *(user_data as *mut (&mut SymbolTable, Option<&mut F>))
-            };
+            let (ref mut symbols, ref mut opt_f) =
+                unsafe { &mut *(user_data as *mut (&mut SymbolTable, Option<&mut F>)) };
             let name = unsafe { CStr::from_ptr(c_name).to_str().unwrap() };
-            opt_f.as_mut().map(|ref mut f| {
-                if let Err(e) = f(name, symbols) {
-                    return CString::new(e.as_ref()).unwrap().into_raw() as *const c_char
-                }
-                ptr::null() as *const c_char
-            }).unwrap()
+            opt_f
+                .as_mut()
+                .map(|ref mut f| {
+                    if let Err(e) = f(name, symbols) {
+                        return CString::new(e.as_ref()).unwrap().into_raw() as *const c_char;
+                    }
+                    ptr::null() as *const c_char
+                })
+                .unwrap()
         }
         Ok(())
     }
@@ -97,14 +105,11 @@ impl Drop for Parser {
     }
 }
 
-
-
 pub struct Expression {
     expr: *mut CExpression,
     string: String,
     symbols: SymbolTable,
 }
-
 
 impl Expression {
     /// Compiles a new `Expression`. Missing variables will lead to a
@@ -137,7 +142,10 @@ impl Expression {
     /// unknown variables are encountered, they are automatically added an internal `SymbolTable`
     /// and initialized with `0.`. Their names and variable IDs are returned as tuples together
     /// with the new `Expression` instance.
-    pub fn parse_vars(string: &str, symbols: SymbolTable) -> Result<(Expression, Vec<(String, usize)>), ParseError> {
+    pub fn parse_vars(
+        string: &str,
+        symbols: SymbolTable,
+    ) -> Result<(Expression, Vec<(String, usize)>), ParseError> {
         let mut vars = vec![];
         let e = Expression::handle_unknown(string, symbols, |name, symbols| {
             let var_id = symbols
@@ -180,7 +188,8 @@ impl Expression {
         symbols: SymbolTable,
         func: F,
     ) -> Result<Expression, ParseError>
-    where F: FnMut(&str, &mut SymbolTable) -> Result<(), String>
+    where
+        F: FnMut(&str, &mut SymbolTable) -> Result<(), String>,
     {
         let parser = Parser::new();
         let mut e = Expression {
@@ -203,7 +212,7 @@ impl Expression {
 
     /// Calculates the value of the expression. Returns `NaN` if the expression was not yet
     /// compiled.
-    /// 
+    ///
     /// *Note*: This method requires mutable access to the underlying expression
     /// object, since executing an expression can have side-effects. Variables
     /// in the symbol table of the expression can be changed or added.
@@ -224,21 +233,18 @@ impl Expression {
     }
 }
 
-
 impl Drop for Expression {
     fn drop(&mut self) {
         unsafe { expression_destroy(self.expr) };
     }
 }
 
-
 impl fmt::Debug for Expression {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
             f,
             "Expression {{ string: {}, symbols: {:?} }}",
-            self.string,
-            self.symbols
+            self.string, self.symbols
         )
     }
 }
@@ -294,7 +300,11 @@ impl SymbolTable {
     /// The behavior of this function differs from
     /// [the one of the underlying library](http://www.partow.net/programming/exprtk/doxygen/classexprtk_1_1symbol__table.html)
     /// by not providing the (optional) `is_constant` option. Use `add_constant()` instead.
-    pub fn add_variable(&mut self, name: &str, value: c_double) -> Result<Option<usize>, InvalidName> {
+    pub fn add_variable(
+        &mut self,
+        name: &str,
+        value: c_double,
+    ) -> Result<Option<usize>, InvalidName> {
         let var_id = self.values.len();
         let c_name = c_string(name)?;
         let rv =
@@ -312,9 +322,9 @@ impl SymbolTable {
     }
 
     /// Returns the value of a variable given its variable ID
-    /// 
+    ///
     /// # Panics
-    /// 
+    ///
     /// This function will panic if the `var_id` refers to an invalid (too large)
     /// variable ID.
     #[inline]
@@ -323,9 +333,9 @@ impl SymbolTable {
     }
 
     /// Returns a mutable reference to the value of a registered variable.
-    /// 
+    ///
     /// # Panics
-    /// 
+    ///
     /// This function will panic if the `var_id` refers to an invalid (too large)
     /// variable ID.
     ///
@@ -354,9 +364,9 @@ impl SymbolTable {
     /// This is an alternative access to `value_mut` and allows changing the values
     /// easily. If the reference to the `Cell` is kept around, its value can be
     /// changed multiple times.
-    /// 
+    ///
     /// # Panics
-    /// 
+    ///
     /// This function will panic if the `var_id` refers to an invalid (too large)
     /// variable ID.
     ///
@@ -380,14 +390,18 @@ impl SymbolTable {
     }
 
     /// Returns the value of a variable (whether constant or not)
-    /// 
+    ///
     /// # Panics
-    /// 
+    ///
     /// This function will panic if the `name` refers to an unknown variable.
     #[inline]
     pub fn value_from_name(&self, name: &str) -> Result<c_double, InvalidName> {
         let c_name = c_string(name)?;
-        let var_ref = unsafe { symbol_table_variable_ref(self.sym, c_name.as_ptr()).as_ref().cloned() };
+        let var_ref = unsafe {
+            symbol_table_variable_ref(self.sym, c_name.as_ptr())
+                .as_ref()
+                .cloned()
+        };
         Ok(var_ref.expect("Unknown variable name"))
     }
 
@@ -420,9 +434,9 @@ impl SymbolTable {
     }
 
     /// Returns a reference to a string variable given its ID.
-    /// 
+    ///
     /// # Panics
-    /// 
+    ///
     /// This function will panic if the `var_id` refers to an invalid (too large)
     /// variable ID.
     #[inline]
@@ -431,9 +445,9 @@ impl SymbolTable {
     }
 
     /// Returns a mutable reference to a string variable given its ID.
-    /// 
+    ///
     /// # Panics
-    /// 
+    ///
     /// This function will panic if the `var_id` refers to an invalid (too large)
     /// variable ID.
     #[inline]
@@ -443,7 +457,11 @@ impl SymbolTable {
 
     /// Adds a new vector variable. Returns the variable ID that can later be used for `vector`
     /// or `None` if a variable with the same name was already present.
-    pub fn add_vector(&mut self, name: &str, vec: &[c_double]) -> Result<Option<usize>, InvalidName> {
+    pub fn add_vector(
+        &mut self,
+        name: &str,
+        vec: &[c_double],
+    ) -> Result<Option<usize>, InvalidName> {
         let i = self.vectors.len();
         let l = vec.len();
         self.vectors.push(vec.to_vec().into_boxed_slice());
@@ -461,9 +479,9 @@ impl SymbolTable {
     }
 
     /// Returns a reference to a vector given its variable ID.
-    /// 
+    ///
     /// # Panics
-    /// 
+    ///
     /// This function will panic if the `var_id` refers to an invalid (too large)
     /// variable ID.
     #[inline]
@@ -472,16 +490,16 @@ impl SymbolTable {
     }
 
     /// Returns an mutable reference to a vector given its variable ID.
-    /// 
+    ///
     /// # Panics
-    /// 
+    ///
     /// This function will panic if the `var_id` refers to an invalid (too large)
     /// variable ID.
     #[inline]
     pub fn vector_mut(&mut self, var_id: usize) -> &mut [c_double] {
         &mut **self.vectors.get_mut(var_id).expect("Invalid variable ID")
     }
-    
+
     /// Returns a reference to a vector given its variable ID. The values are of the type
     /// `std::cell::Cell`, and can thus be modified without mutable access to `SymbolTable`
     #[inline]
@@ -504,7 +522,12 @@ impl SymbolTable {
     // 2. valid name?
     // 3. symbol exists already?
     // Here, we want to distinguish the results of the three checks.
-    fn validate_added<O>(&self, name: &str, result: bool, out: O) -> Result<Option<O>, InvalidName> {
+    fn validate_added<O>(
+        &self,
+        name: &str,
+        result: bool,
+        out: O,
+    ) -> Result<Option<O>, InvalidName> {
         if !result {
             let valid = unsafe { symbol_table_valid(self.sym) };
             if !valid {
@@ -533,9 +556,8 @@ impl SymbolTable {
     /// The function will return `Err(InvalidName)` if the name is not entirely
     /// composed of ASCII characters.
     pub fn get_var_id(&self, name: &str) -> Result<Option<usize>, InvalidName> {
-        self.get_var_ptr_from_name(name).map(|opt_ptr| {
-            opt_ptr.and_then(|ptr| self.values.iter().position(|&p| p == ptr))
-        })
+        self.get_var_ptr_from_name(name)
+            .map(|opt_ptr| opt_ptr.and_then(|ptr| self.values.iter().position(|&p| p == ptr)))
     }
 
     /// Returns the 'ID' of a string or None if not found.
@@ -737,50 +759,136 @@ macro_rules! func_impl {
     }
 }
 
-func_impl!(add_func1, symbol_table_add_func1, clone_func1,
-    free_func_closure1, symbol_table_free_func1,
-    a: c_double);
-func_impl!(add_func2, symbol_table_add_func2, clone_func2,
-    free_func_closure2, symbol_table_free_func2,
-    a: c_double, b: c_double);
-func_impl!(add_func3, symbol_table_add_func3, clone_func3,
-    free_func_closure3, symbol_table_free_func3,
-    a: c_double, b: c_double, c: c_double);
-func_impl!(add_func4, symbol_table_add_func4, clone_func4,
-    free_func_closure4, symbol_table_free_func4,
-    a: c_double, b: c_double, c: c_double, d: c_double);
-func_impl!(add_func5, symbol_table_add_func5, clone_func5,
-    free_func_closure5, symbol_table_free_func5,
-    a: c_double, b: c_double, c: c_double, d: c_double, e: c_double
+func_impl!(
+    add_func1,
+    symbol_table_add_func1,
+    clone_func1,
+    free_func_closure1,
+    symbol_table_free_func1,
+    a: c_double
 );
-func_impl!(add_func6, symbol_table_add_func6, clone_func6,
-    free_func_closure6, symbol_table_free_func6,
-    a: c_double, b: c_double, c: c_double, d: c_double, e: c_double, f: c_double
+func_impl!(
+    add_func2,
+    symbol_table_add_func2,
+    clone_func2,
+    free_func_closure2,
+    symbol_table_free_func2,
+    a: c_double,
+    b: c_double
 );
-func_impl!(add_func7, symbol_table_add_func7, clone_func7,
-    free_func_closure7, symbol_table_free_func7,
-    a: c_double, b: c_double, c: c_double, d: c_double, e: c_double, f: c_double, g: c_double
+func_impl!(
+    add_func3,
+    symbol_table_add_func3,
+    clone_func3,
+    free_func_closure3,
+    symbol_table_free_func3,
+    a: c_double,
+    b: c_double,
+    c: c_double
 );
-func_impl!(add_func8, symbol_table_add_func8, clone_func8,
-    free_func_closure8, symbol_table_free_func8,
-    a: c_double, b: c_double, c: c_double, d: c_double, e: c_double, f: c_double, g: c_double,
+func_impl!(
+    add_func4,
+    symbol_table_add_func4,
+    clone_func4,
+    free_func_closure4,
+    symbol_table_free_func4,
+    a: c_double,
+    b: c_double,
+    c: c_double,
+    d: c_double
+);
+func_impl!(
+    add_func5,
+    symbol_table_add_func5,
+    clone_func5,
+    free_func_closure5,
+    symbol_table_free_func5,
+    a: c_double,
+    b: c_double,
+    c: c_double,
+    d: c_double,
+    e: c_double
+);
+func_impl!(
+    add_func6,
+    symbol_table_add_func6,
+    clone_func6,
+    free_func_closure6,
+    symbol_table_free_func6,
+    a: c_double,
+    b: c_double,
+    c: c_double,
+    d: c_double,
+    e: c_double,
+    f: c_double
+);
+func_impl!(
+    add_func7,
+    symbol_table_add_func7,
+    clone_func7,
+    free_func_closure7,
+    symbol_table_free_func7,
+    a: c_double,
+    b: c_double,
+    c: c_double,
+    d: c_double,
+    e: c_double,
+    f: c_double,
+    g: c_double
+);
+func_impl!(
+    add_func8,
+    symbol_table_add_func8,
+    clone_func8,
+    free_func_closure8,
+    symbol_table_free_func8,
+    a: c_double,
+    b: c_double,
+    c: c_double,
+    d: c_double,
+    e: c_double,
+    f: c_double,
+    g: c_double,
     h: c_double
 );
-func_impl!(add_func9, symbol_table_add_func9, clone_func9,
-    free_func_closure9, symbol_table_free_func9,
-    a: c_double, b: c_double, c: c_double, d: c_double, e: c_double, f: c_double, g: c_double,
-    h: c_double, i: c_double
+func_impl!(
+    add_func9,
+    symbol_table_add_func9,
+    clone_func9,
+    free_func_closure9,
+    symbol_table_free_func9,
+    a: c_double,
+    b: c_double,
+    c: c_double,
+    d: c_double,
+    e: c_double,
+    f: c_double,
+    g: c_double,
+    h: c_double,
+    i: c_double
 );
-func_impl!(add_func10, symbol_table_add_func10, clone_func10,
-    free_func_closure10, symbol_table_free_func10,
-    a: c_double, b: c_double, c: c_double, d: c_double, e: c_double, f: c_double, g: c_double,
-    h: c_double, i: c_double, j: c_double
+func_impl!(
+    add_func10,
+    symbol_table_add_func10,
+    clone_func10,
+    free_func_closure10,
+    symbol_table_free_func10,
+    a: c_double,
+    b: c_double,
+    c: c_double,
+    d: c_double,
+    e: c_double,
+    f: c_double,
+    g: c_double,
+    h: c_double,
+    i: c_double,
+    j: c_double
 );
 
 impl Default for exprtk::SymbolTable {
-     fn default() -> Self {
-         Self::new()
-     }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl Drop for SymbolTable {
@@ -795,7 +903,6 @@ impl Drop for SymbolTable {
         unsafe { symbol_table_destroy(self.sym) };
     }
 }
-
 
 impl fmt::Debug for SymbolTable {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -840,7 +947,6 @@ impl fmt::Debug for SymbolTable {
     }
 }
 
-
 impl Clone for SymbolTable {
     fn clone(&self) -> SymbolTable {
         let mut s = Self::new();
@@ -871,15 +977,13 @@ impl Clone for SymbolTable {
     }
 }
 
-
 /// Wraps a string value and allows modifying it.
 pub struct StringValue(*mut CppString);
 
 impl StringValue {
     pub fn new(value: &str) -> StringValue {
-        let s = unsafe {
-                cpp_string_create(value.as_ptr() as *const c_char, value.len() as size_t)
-            };
+        let s =
+            unsafe { cpp_string_create(value.as_ptr() as *const c_char, value.len() as size_t) };
         StringValue(s)
     }
 
@@ -899,7 +1003,9 @@ impl StringValue {
 
     /// Returns a copy of the internal string.
     pub fn get(&self) -> &str {
-        unsafe { CStr::from_ptr(cpp_string_get(self.0)) }.to_str().unwrap()
+        unsafe { CStr::from_ptr(cpp_string_get(self.0)) }
+            .to_str()
+            .unwrap()
     }
 }
 

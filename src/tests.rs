@@ -61,7 +61,8 @@ fn test_funcs() {
     s.add_func2("two", |a, b| a + b).unwrap();
     s.add_func3("three", |a, b, c| a + b + c).unwrap();
     s.add_func4("four", |a, b, c, d| a + b + c + d).unwrap();
-    let mut e = Expression::new("one(1) + two(1, 1) + three(1, 1 ,1) + four(1, 1, 1, 1)", s).unwrap();
+    let mut e =
+        Expression::new("one(1) + two(1, 1) + three(1, 1 ,1) + four(1, 1, 1, 1)", s).unwrap();
     assert_relative_eq!(e.value(), 10.);
 }
 
@@ -89,14 +90,23 @@ fn test_resolver() {
     s.add_variable("a", 1.).unwrap().unwrap();
     let mut expr = Expression::handle_unknown("a + b + c + s[] + v[]", s, |name, s| {
         match name {
-            "b" => { s.add_variable(name, 1.).unwrap(); },
-            "c" => { s.add_constant(name, 1.).unwrap(); },
-            "s" => { s.add_stringvar(name, "string").unwrap(); },
-            "v" => { s.add_vector(name, &[1., 2., 3.]).unwrap(); },
+            "b" => {
+                s.add_variable(name, 1.).unwrap();
+            }
+            "c" => {
+                s.add_constant(name, 1.).unwrap();
+            }
+            "s" => {
+                s.add_stringvar(name, "string").unwrap();
+            }
+            "v" => {
+                s.add_vector(name, &[1., 2., 3.]).unwrap();
+            }
             _ => {}
         }
         Ok(())
-    }).unwrap();
+    })
+    .unwrap();
     assert_relative_eq!(expr.value(), 12.);
 }
 
@@ -142,7 +152,6 @@ fn test_const() {
     let mut expr = Expression::new("a + 1", s).unwrap();
     assert_relative_eq!(expr.value(), 2.);
 }
-
 
 #[test]
 fn test_ids() {
