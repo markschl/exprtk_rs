@@ -315,6 +315,7 @@ impl SymbolTable {
         Ok(res)
     }
 
+    #[allow(clippy::mut_from_ref)]
     #[inline]
     unsafe fn _value_mut(&self, var_id: usize) -> &mut c_double {
         let ptr = self.values.get(var_id).expect("Invalid variable ID");
