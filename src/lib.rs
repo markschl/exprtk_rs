@@ -6,22 +6,25 @@
 //! were considerably simplified. Each [Expression](struct.Expression.html) owns a
 //! [SymbolTable](struct.SymbolTable.html), they cannot be shared between different instances,
 //! and multiple symbol tables per expression are not possible.
-//! 
+//!
 //! Variables are owned by the `SymbolTable` instance. The functions for adding variables
 //! ([add_variable()](exprtk/struct.SymbolTable.html#method.add_variable)), strings
 //! ([add_stringvar()](exprtk/struct.SymbolTable.html#method.add_stringvar)), vectors
-//! ([add_vector()](exprtk/struct.SymbolTable.html#method.add_vector)) all return an `usize`,
-//! which is a _variable ID_. This ID can be used to later get symbol values and modify them.
-//! Scalars are either modified via mutable references or via `std::cell::Cell` types without
-//! the requirement of mutable access to the `SymbolTable`. 
+//! ([add_vector()](exprtk/struct.SymbolTable.html#method.add_vector)) all return
+//! `usize`, which is a _variable ID_ representing the index in of the value in
+//! an internal data structure. It can be used to later get symbol values and modify them.
+//! Scalars are either modified via mutable references, or via `std::cell::Cell` types without
+//! the requirement of mutable access to the `SymbolTable`.
 //! Strings are changed using [set_string()](exprtk/struct.SymbolTable.html#method.set_string),
 //! which requires mutable access.
 //! Since access and mutation through variable IDs requires a bounds check, these operations
 //! are slower than direct modification through pointers, as done in C++. The performance impact
 //! is naturally more severe for small expressions with fast running times, but seems not too
 //! problematic in most cases. Run `cargo bench` to see the impact (compare with unsafe variant).
+//! For each data type (scalars, strings and vectors), access IDs start at zero
+//! and are incremented on addition of new variables of the given type.
 //!
-//! Since there is no guarantee that `double` is always `f64`, the `c_double` type is used all
+//! As there is no guarantee that `double` is always `f64`, the `c_double` type is used all
 //! over the library. Other precisions are currently not supported.
 //!
 //! ExprTk does not handle non-ASCII encodings, therefore variable names and formulae are
@@ -116,24 +119,27 @@
 //! assert_eq!(expr.value(), 2.);
 //! ```
 
-#[macro_use] extern crate enum_primitive;
+#[macro_use]
+extern crate enum_primitive;
 extern crate exprtk_sys;
 extern crate libc;
 
-pub use libc::c_double;
-pub use exprtk::*;
 pub use error::*;
-
+pub use exprtk::*;
+pub use libc::c_double;
 
 macro_rules! string_from_ptr {
-    ($s:expr) => { CStr::from_ptr($s).to_string_lossy().into_owned() }
+    ($s:expr) => {
+        CStr::from_ptr($s).to_string_lossy().into_owned()
+    };
 }
 
-mod exprtk;
 mod error;
+mod exprtk;
 
 #[cfg(test)]
 mod tests;
 
 #[cfg(test)]
-#[macro_use] extern crate approx;
+#[macro_use]
+extern crate approx;
