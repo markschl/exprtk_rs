@@ -58,7 +58,7 @@ pub fn validate_input(data: Data) {
 
     if let Ok(Some(vec_id)) = symbols.add_vector(&vec_sym, &[1., 2.]) {
         assert_eq!(symbols.get_vec_id(&vec_sym).unwrap(), Some(vec_id));
-        symbols.vector_mut(vec_id).unwrap()[0] = 0.;
+        symbols.vector_mut(vec_id)[0] = 0.;
         assert_eq!(&symbols.get_vector_names(), &[vec_sym.as_str()]);
         assert!(symbols.symbol_exists(&vec_sym).unwrap());
     }

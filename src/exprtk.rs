@@ -307,7 +307,7 @@ impl SymbolTable {
 
     #[inline]
     unsafe fn _value_mut(&self, var_id: usize) -> &mut c_double {
-        let ptr = self.values.get(var_id).expect("Unknown variable ID");
+        let ptr = self.values.get(var_id).expect("Invalid variable ID");
         ptr.as_mut().expect("null pointer!")
     }
 
@@ -315,8 +315,8 @@ impl SymbolTable {
     /// 
     /// # Panics
     /// 
-    /// This function will panic if the `var_id` refers to an unknown variable,
-    /// more specifically if it is larger than the largest variable ID.
+    /// This function will panic if the `var_id` refers to an invalid (too large)
+    /// variable ID.
     #[inline]
     pub fn value(&self, var_id: usize) -> c_double {
         unsafe { *self._value_mut(var_id) }
@@ -326,8 +326,8 @@ impl SymbolTable {
     /// 
     /// # Panics
     /// 
-    /// This function will panic if the `var_id` refers to an unknown variable,
-    /// more specifically if it is larger than the largest variable ID.
+    /// This function will panic if the `var_id` refers to an invalid (too large)
+    /// variable ID.
     ///
     /// # Example:
     /// ```
@@ -357,8 +357,8 @@ impl SymbolTable {
     /// 
     /// # Panics
     /// 
-    /// This function will panic if the `var_id` refers to an unknown variable,
-    /// more specifically if it is larger than the largest variable ID.
+    /// This function will panic if the `var_id` refers to an invalid (too large)
+    /// variable ID.
     ///
     /// # Example:
     /// ```
@@ -412,23 +412,33 @@ impl SymbolTable {
 
     #[inline]
     pub fn set_string(&mut self, var_id: usize, text: &str) -> bool {
-        if let Some(s) = self.string_mut(var_id) {
+        if let Some(s) = self.strings.get_mut(var_id) {
             s.set(text);
             return true;
         }
         false
     }
 
-    /// Returns an immutable reference to a string variable given its ID.
+    /// Returns a reference to a string variable given its ID.
+    /// 
+    /// # Panics
+    /// 
+    /// This function will panic if the `var_id` refers to an invalid (too large)
+    /// variable ID.
     #[inline]
-    pub fn string(&self, var_id: usize) -> Option<&StringValue> {
-        self.strings.get(var_id)
+    pub fn string(&self, var_id: usize) -> &StringValue {
+        self.strings.get(var_id).expect("Invalid variable ID")
     }
 
     /// Returns a mutable reference to a string variable given its ID.
+    /// 
+    /// # Panics
+    /// 
+    /// This function will panic if the `var_id` refers to an invalid (too large)
+    /// variable ID.
     #[inline]
-    pub fn string_mut(&mut self, var_id: usize) -> Option<&mut StringValue> {
-        self.strings.get_mut(var_id)
+    pub fn string_mut(&mut self, var_id: usize) -> &mut StringValue {
+        self.strings.get_mut(var_id).expect("Invalid variable ID")
     }
 
     /// Adds a new vector variable. Returns the variable ID that can later be used for `vector`
@@ -450,32 +460,42 @@ impl SymbolTable {
         res
     }
 
-    /// Returns an immutable reference to a vector given its variable ID.
+    /// Returns a reference to a vector given its variable ID.
+    /// 
+    /// # Panics
+    /// 
+    /// This function will panic if the `var_id` refers to an invalid (too large)
+    /// variable ID.
     #[inline]
-    pub fn vector(&self, var_id: usize) -> Option<&[c_double]> {
-        self.vectors.get(var_id).map(|v| &**v)
+    pub fn vector(&self, var_id: usize) -> &[c_double] {
+        &**self.vectors.get(var_id).expect("Invalid variable ID")
     }
 
     /// Returns an mutable reference to a vector given its variable ID.
+    /// 
+    /// # Panics
+    /// 
+    /// This function will panic if the `var_id` refers to an invalid (too large)
+    /// variable ID.
     #[inline]
-    pub fn vector_mut(&mut self, var_id: usize) -> Option<&mut [c_double]> {
-        self.vectors.get_mut(var_id).map(|v| &mut **v)
+    pub fn vector_mut(&mut self, var_id: usize) -> &mut [c_double] {
+        &mut **self.vectors.get_mut(var_id).expect("Invalid variable ID")
     }
     
     /// Returns a reference to a vector given its variable ID. The values are of the type
     /// `std::cell::Cell`, and can thus be modified without mutable access to `SymbolTable`
     #[inline]
-    pub fn vector_of_cells(&self, var_id: usize) -> Option<&[Cell<c_double>]> {
-        self.vectors.get(var_id).map(|v| unsafe {
-            // Code equivalent to Cell::from_mut(v).as_slice_of_cells(), could be used once stable, but
-            // would require mutable access to self.vectors, which we don't have here.
-            // Alternatively, self.vectors could hold slices of Cells itself. However,
-            // SymbolTable::value_vector would then require unsafe code to convert it back.
-            // Therefore, using unsafe code here
-            let cell_slice = &*(&**v as *const [c_double] as *const Cell<[c_double]>);
-            // code from Cell::as_slice_of_cells(), replace when stable
-            &*(cell_slice as *const Cell<[c_double]> as *const [Cell<c_double>])
-        })
+    pub fn vector_of_cells(&self, var_id: usize) -> &[Cell<c_double>] {
+        let v = self.vector(var_id);
+        // Code equivalent to Cell::from_mut(v).as_slice_of_cells(), could be used, but
+        // would require mutable access to self.vectors, which we don't have here.
+        // Alternatively, self.vectors could hold slices of Cells itself. However,
+        // SymbolTable::value_vector would then require unsafe code to convert it back.
+        // Therefore, using unsafe code here
+        unsafe {
+            let cell_slice = &*(v as *const [c_double] as *const Cell<[c_double]>);
+            cell_slice.as_slice_of_cells()
+        }
     }
 
     // Validate result of adding variable / string /...
@@ -799,14 +819,14 @@ impl fmt::Debug for SymbolTable {
             format!("[{}]", self.get_stringvar_names()
                 .iter()
                 .map(|n| format!("\"{}\": \"{}\"", n,
-                    self.string(self.get_string_id(n).unwrap().unwrap()).unwrap().get())
+                    self.string(self.get_string_id(n).unwrap().unwrap()).get())
                 )
                 .collect::<Vec<_>>()
                 .join(", ")
             ),
             format!("[{}]", self.get_vector_names()
                 .iter()
-                .map(|n| format!("\"{}\": {:?}", n, self.vector(self.get_vec_id(n).unwrap().unwrap()).unwrap()))
+                .map(|n| format!("\"{}\": {:?}", n, self.vector(self.get_vec_id(n).unwrap().unwrap())))
                 .collect::<Vec<_>>()
                 .join(", ")
             ),
@@ -835,12 +855,12 @@ impl Clone for SymbolTable {
         }
         // strings
         for n in self.get_stringvar_names() {
-            let v = self.string(self.get_string_id(&n).unwrap().unwrap()).unwrap().get();
+            let v = self.string(self.get_string_id(&n).unwrap().unwrap()).get();
             s.add_stringvar(&n, &v).unwrap();
         }
         // vectors
         for n in self.get_vector_names() {
-            let v = self.vector(self.get_vec_id(&n).unwrap().unwrap()).unwrap();
+            let v = self.vector(self.get_vec_id(&n).unwrap().unwrap());
             s.add_vector(&n, v).unwrap();
         }
         // functions
