@@ -1,8 +1,8 @@
 # exprtk_rs
 
 ![docs.rs](https://docs.rs/exprtk_rs/badge.svg)
-[![Linux build status](https://api.travis-ci.org/markschl/exprtk_rs.png)](https://travis-ci.org/markschl/exprtk_rs)
-[![Windows build status](https://ci.appveyor.com/api/projects/status/github/markschl/exprtk_rs?svg=true)](https://ci.appveyor.com/project/markschl/exprtk_rs)
+
+[![Tests](https://github.com/markschl/exprtk_rs/workflows/test/badge.svg)](https://travis-ci.org/markschl/exprtk_rs/actions)
 
 Rust bindings to [ExprTk](http://www.partow.net/programming/exprtk/) library.
 
