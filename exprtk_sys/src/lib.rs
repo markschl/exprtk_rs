@@ -1,3 +1,5 @@
+#![allow(clippy::missing_safety_doc)]
+
 use libc::*;
 use std::ffi::CString;
 use std::slice;
