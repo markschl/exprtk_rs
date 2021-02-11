@@ -628,19 +628,19 @@ impl SymbolTable {
         unsafe { symbol_table_function_count(self.sym) as usize }
     }
 
-    pub fn add_constants(&self) -> bool {
+    pub fn add_constants(&mut self) -> bool {
         unsafe { symbol_table_add_constants(self.sym) }
     }
 
-    pub fn add_pi(&self) -> bool {
+    pub fn add_pi(&mut self) -> bool {
         unsafe { symbol_table_add_pi(self.sym) }
     }
 
-    pub fn add_epsilon(&self) -> bool {
+    pub fn add_epsilon(&mut self) -> bool {
         unsafe { symbol_table_add_epsilon(self.sym) }
     }
 
-    pub fn add_infinity(&self) -> bool {
+    pub fn add_infinity(&mut self) -> bool {
         unsafe { symbol_table_add_infinity(self.sym) }
     }
 
@@ -703,10 +703,12 @@ impl SymbolTable {
 }
 
 macro_rules! func_impl {
-    ($name:ident, $sys_func:ident, $clone_func:ident, $free_closure:ident, $free_cpp_func:ident,
+    ($name:ident, $n:expr, $sys_func:ident, $clone_func:ident, $free_closure:ident, $free_cpp_func:ident,
         $($x:ident: $ty:ty),*) => {
         impl SymbolTable {
-            /// Add a function. Returns `true` if the function was added / `false`
+            /// Add a function with
+            #[doc = $n]
+            /// scalar arguments. Returns `true` if the function was added / `false`
             /// if the name was already present.
             pub fn $name<F>(&mut self, name: &str, func: F) -> Result<bool, InvalidName>
                 where F: Fn($($ty),*) -> c_double + Clone
@@ -762,6 +764,7 @@ macro_rules! func_impl {
 
 func_impl!(
     add_func1,
+    "1",
     symbol_table_add_func1,
     clone_func1,
     free_func_closure1,
@@ -770,6 +773,7 @@ func_impl!(
 );
 func_impl!(
     add_func2,
+    "2",
     symbol_table_add_func2,
     clone_func2,
     free_func_closure2,
@@ -779,6 +783,7 @@ func_impl!(
 );
 func_impl!(
     add_func3,
+    "3",
     symbol_table_add_func3,
     clone_func3,
     free_func_closure3,
@@ -789,6 +794,7 @@ func_impl!(
 );
 func_impl!(
     add_func4,
+    "4",
     symbol_table_add_func4,
     clone_func4,
     free_func_closure4,
@@ -800,6 +806,7 @@ func_impl!(
 );
 func_impl!(
     add_func5,
+    "5",
     symbol_table_add_func5,
     clone_func5,
     free_func_closure5,
@@ -812,6 +819,7 @@ func_impl!(
 );
 func_impl!(
     add_func6,
+    "6",
     symbol_table_add_func6,
     clone_func6,
     free_func_closure6,
@@ -825,6 +833,7 @@ func_impl!(
 );
 func_impl!(
     add_func7,
+    "7",
     symbol_table_add_func7,
     clone_func7,
     free_func_closure7,
@@ -839,6 +848,7 @@ func_impl!(
 );
 func_impl!(
     add_func8,
+    "8",
     symbol_table_add_func8,
     clone_func8,
     free_func_closure8,
@@ -854,6 +864,7 @@ func_impl!(
 );
 func_impl!(
     add_func9,
+    "9",
     symbol_table_add_func9,
     clone_func9,
     free_func_closure9,
@@ -870,6 +881,7 @@ func_impl!(
 );
 func_impl!(
     add_func10,
+    "10",
     symbol_table_add_func10,
     clone_func10,
     free_func_closure10,
@@ -1002,7 +1014,7 @@ impl StringValue {
         }
     }
 
-    /// Returns a copy of the internal string.
+    /// Returns a reference to the internal string.
     pub fn get(&self) -> &str {
         unsafe { CStr::from_ptr(cpp_string_get(self.0)) }
             .to_str()
