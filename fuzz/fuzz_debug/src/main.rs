@@ -1,8 +1,7 @@
-
+use arbitrary::{Arbitrary, Unstructured};
 use std::env::args;
 use std::fs::File;
 use std::io::Read;
-use arbitrary::{Arbitrary, Unstructured};
 
 mod validation {
     include!("../../fuzz_targets/validation.rs");
@@ -15,7 +14,7 @@ fn main() {
         .unwrap()
         .read_to_end(&mut data)
         .expect("could not open file");
-    
+
     let data = Arbitrary::arbitrary_take_rest(Unstructured::new(data.as_slice())).unwrap();
     println!("{:?}", data);
 

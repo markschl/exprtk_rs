@@ -1,12 +1,13 @@
 [package]
 name = "exprtk_sys"
-version = "0.0.7"
+version = "0.1.0"
 authors = ["<markschl19@gmail.com>"]
 description = "Low level rust bindings to the ExprTk C++ library (http://www.partow.net/programming/exprtk)"
 build = "build.rs"
 license = "MIT"
 repository = "https://github.com/markschl/exprtk_rs/exprtk_sys"
 documentation = "https://docs.rs/exprtk_sys"
+edition = "2018"
 
 include = [
   "src/*",

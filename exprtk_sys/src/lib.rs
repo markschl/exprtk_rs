@@ -1,9 +1,6 @@
-
-extern crate libc;
-
-use std::slice;
 use libc::*;
 use std::ffi::CString;
+use std::slice;
 
 // types
 
@@ -11,7 +8,6 @@ pub enum CSymbolTable {}
 pub enum CExpression {}
 pub enum CParser {}
 pub enum CppString {}
-
 
 // simple types used for communications with C++
 
@@ -38,13 +34,11 @@ pub struct CParseError {
     pub column_no: size_t,
 }
 
-
 // for deallocating CString from C
 #[no_mangle]
-pub unsafe extern fn free_rust_cstring(s: *mut c_char) {
+pub unsafe extern "C" fn free_rust_cstring(s: *mut c_char) {
     let _ = CString::from_raw(s);
 }
-
 
 // functions without polymorphism
 extern "C" {
@@ -52,18 +46,39 @@ extern "C" {
     // these methods depend on a specific precision
 
     pub fn symbol_table_new() -> *mut CSymbolTable;
-    pub fn symbol_table_add_variable(t: *mut CSymbolTable,
-        variable_name: *const c_char, value: *const c_double, is_constant: bool) -> bool;
-    pub fn symbol_table_add_constant(t: *mut CSymbolTable,
-        variable_name: *const c_char, value: c_double) -> bool;
-    pub fn symbol_table_create_variable(t: *mut CSymbolTable,
-         variable_name: *const c_char, value: c_double) -> bool;
-    pub fn symbol_table_add_stringvar(t: *mut CSymbolTable,
-        variable_name: *const c_char, string: *mut CppString, is_const: bool) -> bool;
-    pub fn symbol_table_create_stringvar(t: *mut CSymbolTable,
-        variable_name: *const c_char, string: *const c_char) -> bool;
-    pub fn symbol_table_add_vector(t: *mut CSymbolTable,
-        variable_name: *const c_char, ptr: *const c_double, len: size_t) -> bool;
+    pub fn symbol_table_add_variable(
+        t: *mut CSymbolTable,
+        variable_name: *const c_char,
+        value: *const c_double,
+        is_constant: bool,
+    ) -> bool;
+    pub fn symbol_table_add_constant(
+        t: *mut CSymbolTable,
+        variable_name: *const c_char,
+        value: c_double,
+    ) -> bool;
+    pub fn symbol_table_create_variable(
+        t: *mut CSymbolTable,
+        variable_name: *const c_char,
+        value: c_double,
+    ) -> bool;
+    pub fn symbol_table_add_stringvar(
+        t: *mut CSymbolTable,
+        variable_name: *const c_char,
+        string: *mut CppString,
+        is_const: bool,
+    ) -> bool;
+    pub fn symbol_table_create_stringvar(
+        t: *mut CSymbolTable,
+        variable_name: *const c_char,
+        string: *const c_char,
+    ) -> bool;
+    pub fn symbol_table_add_vector(
+        t: *mut CSymbolTable,
+        variable_name: *const c_char,
+        ptr: *const c_double,
+        len: size_t,
+    ) -> bool;
     pub fn symbol_table_remove_variable(t: *mut CSymbolTable, name: *const c_char) -> bool;
     pub fn symbol_table_remove_stringvar(t: *mut CSymbolTable, name: *const c_char) -> bool;
     pub fn symbol_table_remove_vector(t: *mut CSymbolTable, name: *const c_char) -> bool;
@@ -72,10 +87,23 @@ extern "C" {
     pub fn symbol_table_clear_vectors(t: *mut CSymbolTable);
     pub fn symbol_table_clear_local_constants(t: *mut CSymbolTable);
     pub fn symbol_table_clear_functions(t: *mut CSymbolTable);
-    pub fn symbol_table_variable_ref(t: *mut CSymbolTable, variable_name: *const c_char) -> *mut c_double;
-    pub fn symbol_table_stringvar_ref(t: *mut CSymbolTable, variable_name: *const c_char) -> *mut CppString;
-    pub fn symbol_table_vector_ptr(t: *mut CSymbolTable, variable_name: *const c_char) -> *const c_double;
-    pub fn symbol_table_set_string(t: *mut CSymbolTable, ptr: *const CppString, string: *const c_char);
+    pub fn symbol_table_variable_ref(
+        t: *mut CSymbolTable,
+        variable_name: *const c_char,
+    ) -> *mut c_double;
+    pub fn symbol_table_stringvar_ref(
+        t: *mut CSymbolTable,
+        variable_name: *const c_char,
+    ) -> *mut CppString;
+    pub fn symbol_table_vector_ptr(
+        t: *mut CSymbolTable,
+        variable_name: *const c_char,
+    ) -> *const c_double;
+    pub fn symbol_table_set_string(
+        t: *mut CSymbolTable,
+        ptr: *const CppString,
+        string: *const c_char,
+    );
     pub fn symbol_table_variable_count(t: *mut CSymbolTable) -> size_t;
     pub fn symbol_table_stringvar_count(t: *mut CSymbolTable) -> size_t;
     pub fn symbol_table_vector_count(t: *mut CSymbolTable) -> size_t;
@@ -104,61 +132,142 @@ extern "C" {
     //     }
     // }
 
-    pub fn symbol_table_add_func1(t: *mut CSymbolTable, name: *const c_char,
-        cb: extern fn (*mut c_void, c_double) -> c_double,
-        user_data: *mut c_void) -> Pair<bool, *mut c_void>;
+    pub fn symbol_table_add_func1(
+        t: *mut CSymbolTable,
+        name: *const c_char,
+        cb: extern "C" fn(*mut c_void, c_double) -> c_double,
+        user_data: *mut c_void,
+    ) -> Pair<bool, *mut c_void>;
     pub fn symbol_table_free_func1(c_func: *mut c_void);
 
-    pub fn symbol_table_add_func2(t: *mut CSymbolTable, name: *const c_char,
-        cb: extern fn (*mut c_void, c_double, c_double) -> c_double,
-        user_data: *mut c_void) -> Pair<bool, *mut c_void>;
+    pub fn symbol_table_add_func2(
+        t: *mut CSymbolTable,
+        name: *const c_char,
+        cb: extern "C" fn(*mut c_void, c_double, c_double) -> c_double,
+        user_data: *mut c_void,
+    ) -> Pair<bool, *mut c_void>;
     pub fn symbol_table_free_func2(c_func: *mut c_void);
 
-    pub fn symbol_table_add_func3(t: *mut CSymbolTable, name: *const c_char,
-        cb: extern fn (*mut c_void, c_double, c_double, c_double) -> c_double,
-        user_data: *mut c_void) -> Pair<bool, *mut c_void>;
+    pub fn symbol_table_add_func3(
+        t: *mut CSymbolTable,
+        name: *const c_char,
+        cb: extern "C" fn(*mut c_void, c_double, c_double, c_double) -> c_double,
+        user_data: *mut c_void,
+    ) -> Pair<bool, *mut c_void>;
     pub fn symbol_table_free_func3(c_func: *mut c_void);
 
-    pub fn symbol_table_add_func4(t: *mut CSymbolTable, name: *const c_char,
-        cb: extern fn (*mut c_void, c_double, c_double, c_double, c_double) -> c_double,
-        user_data: *mut c_void) -> Pair<bool, *mut c_void>;
+    pub fn symbol_table_add_func4(
+        t: *mut CSymbolTable,
+        name: *const c_char,
+        cb: extern "C" fn(*mut c_void, c_double, c_double, c_double, c_double) -> c_double,
+        user_data: *mut c_void,
+    ) -> Pair<bool, *mut c_void>;
     pub fn symbol_table_free_func4(c_func: *mut c_void);
 
-    pub fn symbol_table_add_func5(t: *mut CSymbolTable, name: *const c_char,
-        cb: extern fn (*mut c_void, c_double, c_double, c_double, c_double, c_double) -> c_double,
-        user_data: *mut c_void) -> Pair<bool, *mut c_void>;
+    pub fn symbol_table_add_func5(
+        t: *mut CSymbolTable,
+        name: *const c_char,
+        cb: extern "C" fn(
+            *mut c_void,
+            c_double,
+            c_double,
+            c_double,
+            c_double,
+            c_double,
+        ) -> c_double,
+        user_data: *mut c_void,
+    ) -> Pair<bool, *mut c_void>;
     pub fn symbol_table_free_func5(c_func: *mut c_void);
 
-    pub fn symbol_table_add_func6(t: *mut CSymbolTable, name: *const c_char,
-        cb: extern fn (*mut c_void, c_double, c_double, c_double, c_double, c_double,
-        c_double) -> c_double,
-        user_data: *mut c_void) -> Pair<bool, *mut c_void>;
+    pub fn symbol_table_add_func6(
+        t: *mut CSymbolTable,
+        name: *const c_char,
+        cb: extern "C" fn(
+            *mut c_void,
+            c_double,
+            c_double,
+            c_double,
+            c_double,
+            c_double,
+            c_double,
+        ) -> c_double,
+        user_data: *mut c_void,
+    ) -> Pair<bool, *mut c_void>;
     pub fn symbol_table_free_func6(c_func: *mut c_void);
 
-    pub fn symbol_table_add_func7(t: *mut CSymbolTable, name: *const c_char,
-        cb: extern fn (*mut c_void, c_double, c_double, c_double, c_double, c_double,
-        c_double, c_double) -> c_double,
-        user_data: *mut c_void) -> Pair<bool, *mut c_void>;
+    pub fn symbol_table_add_func7(
+        t: *mut CSymbolTable,
+        name: *const c_char,
+        cb: extern "C" fn(
+            *mut c_void,
+            c_double,
+            c_double,
+            c_double,
+            c_double,
+            c_double,
+            c_double,
+            c_double,
+        ) -> c_double,
+        user_data: *mut c_void,
+    ) -> Pair<bool, *mut c_void>;
     pub fn symbol_table_free_func7(c_func: *mut c_void);
 
-    pub fn symbol_table_add_func8(t: *mut CSymbolTable, name: *const c_char,
-        cb: extern fn (*mut c_void, c_double, c_double, c_double, c_double, c_double,
-        c_double, c_double, c_double) -> c_double,
-        user_data: *mut c_void) -> Pair<bool, *mut c_void>;
+    pub fn symbol_table_add_func8(
+        t: *mut CSymbolTable,
+        name: *const c_char,
+        cb: extern "C" fn(
+            *mut c_void,
+            c_double,
+            c_double,
+            c_double,
+            c_double,
+            c_double,
+            c_double,
+            c_double,
+            c_double,
+        ) -> c_double,
+        user_data: *mut c_void,
+    ) -> Pair<bool, *mut c_void>;
     pub fn symbol_table_free_func8(c_func: *mut c_void);
 
-    pub fn symbol_table_add_func9(t: *mut CSymbolTable, name: *const c_char,
-        cb: extern fn (*mut c_void, c_double, c_double, c_double, c_double, c_double,
-        c_double, c_double, c_double, c_double) -> c_double,
-        user_data: *mut c_void) -> Pair<bool, *mut c_void>;
+    pub fn symbol_table_add_func9(
+        t: *mut CSymbolTable,
+        name: *const c_char,
+        cb: extern "C" fn(
+            *mut c_void,
+            c_double,
+            c_double,
+            c_double,
+            c_double,
+            c_double,
+            c_double,
+            c_double,
+            c_double,
+            c_double,
+        ) -> c_double,
+        user_data: *mut c_void,
+    ) -> Pair<bool, *mut c_void>;
     pub fn symbol_table_free_func9(c_func: *mut c_void);
 
-    pub fn symbol_table_add_func10(t: *mut CSymbolTable, name: *const c_char,
-        cb: extern fn (*mut c_void, c_double, c_double, c_double, c_double, c_double,
-        c_double, c_double, c_double, c_double, c_double) -> c_double,
-        user_data: *mut c_void) -> Pair<bool, *mut c_void>;
+    pub fn symbol_table_add_func10(
+        t: *mut CSymbolTable,
+        name: *const c_char,
+        cb: extern "C" fn(
+            *mut c_void,
+            c_double,
+            c_double,
+            c_double,
+            c_double,
+            c_double,
+            c_double,
+            c_double,
+            c_double,
+            c_double,
+            c_double,
+        ) -> c_double,
+        user_data: *mut c_void,
+    ) -> Pair<bool, *mut c_void>;
     pub fn symbol_table_free_func10(c_func: *mut c_void);
-
 
     // Expression
     pub fn expression_new() -> *mut CExpression;
@@ -169,8 +278,13 @@ extern "C" {
     pub fn parser_new() -> *mut CParser;
     pub fn parser_destroy(p: *mut CParser);
     pub fn parser_compile(p: *mut CParser, s: *const c_char, e: *const CExpression) -> bool;
-    pub fn parser_compile_resolve(p: *mut CParser, s: *const c_char, e: *const CExpression,
-        cb: extern fn (*const c_char, *mut c_void) -> *const c_char, fn_pointer: *mut c_void) -> bool;
+    pub fn parser_compile_resolve(
+        p: *mut CParser,
+        s: *const c_char,
+        e: *const CExpression,
+        cb: extern "C" fn(*const c_char, *mut c_void) -> *const c_char,
+        fn_pointer: *mut c_void,
+    ) -> bool;
     pub fn parser_error(p: *mut CParser) -> *const CParseError;
     pub fn parser_error_free(p: *const CParseError);
 
