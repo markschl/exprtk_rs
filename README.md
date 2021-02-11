@@ -1,8 +1,7 @@
 # exprtk_rs
 
 ![docs.rs](https://docs.rs/exprtk_rs/badge.svg)
-
-[![Tests](https://github.com/markschl/exprtk_rs/workflows/test/badge.svg)](https://travis-ci.org/markschl/exprtk_rs/actions)
+[![Tests](https://github.com/markschl/exprtk_rs/workflows/rust.yml/badge.svg)](https://travis-ci.org/markschl/exprtk_rs/actions)
 
 Rust bindings to [ExprTk](http://www.partow.net/programming/exprtk/) library.
 

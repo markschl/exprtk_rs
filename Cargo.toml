@@ -35,7 +35,7 @@ caseinsensitivity = ["exprtk_sys/caseinsensitivity"]
 debug = ["exprtk_sys/debug"]
 
 [dependencies]
-exprtk_sys = {path="exprtk_sys", version="0.0.7"}
+exprtk_sys = {path="exprtk_sys", version="0.1.0"}
 enum_primitive = "0.1"
 libc = "0.2"
 
